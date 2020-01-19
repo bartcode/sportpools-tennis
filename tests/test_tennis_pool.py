@@ -4,7 +4,8 @@ from unittest import TestCase
 import pandas as pd
 from pandas.util.testing import assert_frame_equal
 
-from src.sportpools.tennis import TennisPool, TennisPoolEmulator
+from src.sportpools.tennis import TennisPool
+from src.sportpools.emulator import TennisPoolEmulator
 
 
 class TestTennisPool(TestCase):

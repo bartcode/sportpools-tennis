@@ -6,10 +6,12 @@ import logging.config
 import os
 import sys
 
-from src.sportpools.tennis import TennisPool, TennisPoolEmulator, optimise_selection
+from src.sportpools.tennis import TennisPool, optimise_selection
+from src.sportpools.emulator import TennisPoolEmulator
 
 logging.config.fileConfig(os.path.join(sys.prefix, 'sportpools', 'logger.ini'), disable_existing_loggers=False)
 LOGGER = logging.getLogger(__name__)
+ROUNDS = ['r64', 'r32', 'r16', 'qf', 'sm', 'f', 'w']
 
 
 def main() -> None:
@@ -46,14 +48,14 @@ def main() -> None:
 
     args, _ = parser.parse_known_args()
 
-    pool = TennisPool() \
+    pool = TennisPool(ROUNDS) \
         .load_data(args.file) \
         .apply_filters() \
         .add_features()
 
     emulator = TennisPoolEmulator(pool.get_results())
 
-    pool_results = emulator.play_draw() \
+    pool_results = emulator.play_draw(ROUNDS) \
         .add_features() \
         .get_results()
 

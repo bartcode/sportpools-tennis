@@ -7,6 +7,7 @@ import logging
 from dataclasses import dataclass
 from typing import Optional, List
 
+import numpy as np
 import pandas as pd
 
 LOGGER = logging.getLogger(__name__)
@@ -58,13 +59,14 @@ class TennisPoolEmulator:
 
         return self
 
-    def add_features(self) -> TennisPoolEmulator:
+    def add_features(self, rounds: List[str]) -> TennisPoolEmulator:
         """
         Add features based on emulated properties.
-        :return:
+        :param rounds: Rounds to play
+        :return: DataFrame
         """
         self._schedule = self._schedule \
-            .pipe(TennisPoolEmulator.determine_score_potency)
+            .pipe(TennisPoolEmulator.determine_score_potency, rounds)
 
         return self
 
@@ -165,13 +167,36 @@ class TennisPoolEmulator:
         return base_score + second_week_score + win_score
 
     @staticmethod
-    def determine_score_potency(data: pd.DataFrame) -> pd.DataFrame:
+    def probabilities_to_score(round_probs: List[float], black: int, loser: bool) -> float:
+        """
+        Determine a player's score based on the probabilities per round
+        his associated black points.
+        :param round_probs: Probabilities per round.
+        :param black: Black points
+        :param loser: Whether the player is marked as 'loser'.
+        :return: Score
+        """
+        first_week = sum(round_probs[round_probs.index[:3]] * (10 - black))
+        second_week = sum(round_probs[round_probs.index[3:-1]] * (2 * (10 - black)))
+        win = round_probs[-1] * 50
+
+        if loser:
+            return sum(np.array(round_probs) * (10 - black))
+
+        return first_week + second_week + win
+
+    @staticmethod
+    def determine_score_potency(data: pd.DataFrame, rounds: List[str]) -> pd.DataFrame:
         """
         Determine the number of rounds a player will pass.
         :param data: DataFrame
+        :param rounds: Rounds to play
         :return: DataFrame with number of rounds per player.
         """
-        data['potency'] = data.apply(lambda x: TennisPoolEmulator.rounds_to_score(x['rounds'], x['black'], False),
-                                     axis=1)
+        # This is an alternative scoring which can be used as well.
+        # data['potency'] = data.apply(lambda x: TennisPoolEmulator.rounds_to_score(x['rounds'], x['black'], False),
+        #                              axis=1)
+
+        data['potency'] = data.apply(lambda x, r: TennisPoolEmulator.probabilities_to_score(x[r], x['black'], False), axis=1, r=rounds)
 
         return data

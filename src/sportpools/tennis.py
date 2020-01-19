@@ -178,12 +178,13 @@ class TennisPool:
 
 
 def optimise_selection(schedule_input: pd.DataFrame, selection_limit: int,
-                       black_points_limit: int, loser: Optional[str] = None) -> Dict[str, Any]:
+                       black_points_limit: int, rounds: List[str], loser: Optional[str] = None) -> Dict[str, Any]:
     """
     Optimise player selection.
     :param schedule_input: Players and their schedule.
     :param selection_limit: Number of players to choose.
     :param black_points_limit: Maximum number of black points.
+    :param rounds: Rounds to play
     :param loser: Selected loser
     :return: Optimal selection
     """
@@ -203,10 +204,16 @@ def optimise_selection(schedule_input: pd.DataFrame, selection_limit: int,
         else:
             loser = loser_record.player
 
-            extra_loss = TennisPoolEmulator.rounds_to_score(
-                loser_record.rounds,
-                loser_record.black,
-                True
+            # extra_loss = TennisPoolEmulator.rounds_to_score(
+            #     rounds=loser_record.rounds,
+            #     black=loser_record.black,
+            #     loser=True
+            # )
+
+            extra_loss = TennisPoolEmulator.probabilities_to_score(
+                round_probs=loser_record[rounds],
+                black=loser_record.black,
+                loser=True
             )
 
             schedule.loc[schedule.player == loser, 'potency'] = extra_loss

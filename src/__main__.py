@@ -54,14 +54,16 @@ def main() -> None:
 
     emulator = TennisPoolEmulator(pool.get_results())
 
-    pool_results = emulator.play_draw(ROUNDS) \
-        .add_features() \
+    pool_results = emulator \
+        .play_draw(ROUNDS) \
+        .add_features(ROUNDS) \
         .get_results()
 
     selection_optimum = optimise_selection(
         pool_results,
         selection_limit=args.count,
         black_points_limit=args.black_points,
+        rounds=ROUNDS,
         loser=args.loser,
     )
 

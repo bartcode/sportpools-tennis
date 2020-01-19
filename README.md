@@ -21,7 +21,7 @@ $ pip install git+https://github.com/bartcode/sportpools-tennis.git
 3. Save the page as HTML-only and save it to your disk.
 4. Run `sportpools -f ./page.htm`.
 ```text
-usage: sportpools [-h] -f FILE [-b BLACK_POINTS] [-c COUNT]
+usage: sportpools [-h] -f FILE [-b BLACK_POINTS] [-c COUNT] [-l LOSER]
 
 Optimise your Sportpools player selection
 
@@ -32,8 +32,12 @@ optional arguments:
                         Path to file to import
   -c COUNT, --count COUNT, --player-count COUNT
                         Number of players to select
+  -l LOSER, --loser LOSER
+                        Selected loser
 ```
 
 ## Limitations
-- A loser should still be chosen by the player.
+- A loser should still be chosen by the player and can be passed as an argument to the script with `-l`.
+- The joker is eventually chosen manually, but a list of suggestions is created.
 - The number of available black points is 20 by default, but can be adjusted using the `-b` argument.
+  Do note it is automatically adjusted when you define your loser.

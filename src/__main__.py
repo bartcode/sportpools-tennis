@@ -37,6 +37,12 @@ def main() -> None:
         type=int,
         default=14
     )
+    parser.add_argument(
+        '-l', '--loser',
+        help='Selected loser',
+        default='Rafael Nadal',
+        type=str,
+    )
 
     args, _ = parser.parse_known_args()
 
@@ -54,17 +60,19 @@ def main() -> None:
     selection_optimum = optimise_selection(
         pool_results,
         selection_limit=args.count,
-        black_points_limit=args.black_points
+        black_points_limit=args.black_points,
+        loser=args.loser,
     )
 
     LOGGER.info('Optimal set of players is as follows:')
-    LOGGER.info('\r\n%s', selection_optimum.head(25))
+    LOGGER.info('\r\n%s', selection_optimum['schedule'].head(25))
+
     LOGGER.info('The selection of these players results in %d points with %d black points',
-                selection_optimum['potency'].sum(),
-                selection_optimum['black'].sum())
+                selection_optimum['schedule']['potency'].sum(),
+                selection_optimum['schedule']['black'].sum())
     LOGGER.info('Select your joker in this order:')
     LOGGER.info('\r\n%s',
-                str(selection_optimum[selection_optimum['rounds'] >= 4]
+                str(selection_optimum['schedule'][selection_optimum['schedule']['rounds'] >= 4]
                     .sort_values(by=['black'], ascending=True)
                     .head(5)))
 

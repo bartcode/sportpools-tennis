@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Any, Dict
 
 import pandas as pd
 from pulp import LpMaximize, LpProblem, LpVariable, LpInteger
@@ -22,6 +22,7 @@ class Player:
     player: str
     seed: int
     round_odds: float
+    loser: bool = False
     terminated: bool = False
     round_index: Optional[int] = 0
     index: Optional[int] = 0
@@ -144,31 +145,36 @@ class TennisPoolEmulator:
             index += 1
 
     @staticmethod
+    def rounds_to_score(rounds: int, black: int, loser: bool) -> int:
+        """
+        Determine a player's score based on the number of rounds he makes it to and
+        his associated black points.
+        :param rounds: Rounds a player passes
+        :param black: Black points
+        :param loser: Whether the player is marked as 'loser'.
+        :return: Score
+        """
+        if loser:
+            return rounds * -10
+
+        base_score = rounds * (10 - black)
+        second_week_score = max(0, rounds - 3) * (10 - black)
+        win_score = 0
+
+        if rounds == 7:
+            win_score = 50
+
+        return base_score + second_week_score + win_score
+
+    @staticmethod
     def determine_score_potency(data: pd.DataFrame) -> pd.DataFrame:
         """
         Determine the number of rounds a player will pass.
         :param data: DataFrame
         :return: DataFrame with number of rounds per player.
         """
-
-        def rounds_to_score(rounds: int, black: int) -> int:
-            """
-            Determine a player's score based on the number of rounds he makes it to and
-            his associated black points.
-            :param rounds: Rounds a player passes
-            :param black: Black points
-            :return: Score
-            """
-            base_score = rounds * (10 - black)
-            second_week_score = max(0, rounds - 3) * (10 - black)
-            win_score = 0
-
-            if rounds == 7:
-                win_score = 50
-
-            return base_score + second_week_score + win_score
-
-        data['potency'] = data.apply(lambda x: rounds_to_score(x['rounds'], x['black']), axis=1)
+        data['potency'] = data.apply(lambda x: TennisPoolEmulator.rounds_to_score(x['rounds'], x['black'], False),
+                                     axis=1)
 
         return data
 
@@ -334,15 +340,45 @@ class TennisPool:
         return data
 
 
-def optimise_selection(schedule: pd.DataFrame, selection_limit: int, black_points_limit: int) -> pd.DataFrame:
+def optimise_selection(schedule_input: pd.DataFrame, selection_limit: int,
+                       black_points_limit: int, loser: Optional[str] = None) -> Dict[str, Any]:
     """
     Optimise player selection.
-    :param schedule: Players and their schedule.
+    :param schedule_input: Players and their schedule.
     :param selection_limit: Number of players to choose.
     :param black_points_limit: Maximum number of black points.
+    :param loser: Selected loser
     :return: Optimal selection
     """
     LOGGER.info('Optimising selection')
+
+    schedule = schedule_input.copy()
+    black_extra = 0
+    selection_limit_extra = 0
+    extra_loss = 0
+
+    if loser:
+        loser_record = schedule[schedule['player'].str.lower() == loser.lower()].iloc[0]
+
+        if loser_record.empty:
+            LOGGER.warning('Unable to find player %s in draw', loser)
+            loser = None
+        else:
+            loser = loser_record.player
+
+            schedule.loc[schedule.player == loser, 'potency'] = TennisPoolEmulator.rounds_to_score(
+                loser_record.rounds,
+                loser_record.black,
+                True
+            )
+
+            black_extra = loser_record.black
+            selection_limit_extra = 1
+            LOGGER.info('Allowing %d extra black points, because of your selected loser', black_extra)
+            LOGGER.info('Adding the loser to your selection, and simultaneously increasing the limit of your'
+                        'selection, such that your loser is taken into account.')
+
+    black_points_limit += black_extra
 
     players = schedule['player'].tolist()
     potency = schedule['potency'].tolist()
@@ -361,8 +397,11 @@ def optimise_selection(schedule: pd.DataFrame, selection_limit: int, black_point
     probability += sum(potency[p] * param_x[p] for p in param_player)
 
     # Constraint definition
-    probability += sum(param_x[p] for p in param_player) == selection_limit
+    probability += sum(param_x[p] for p in param_player) == (selection_limit + selection_limit_extra)
     probability += sum(black_points[p] * param_x[p] for p in param_player) <= black_points_limit
+
+    if loser:
+        probability += param_x[players.index(loser)] == 1
 
     # Start solving the problem instance
     probability.solve()
@@ -372,4 +411,10 @@ def optimise_selection(schedule: pd.DataFrame, selection_limit: int, black_point
 
     LOGGER.info('Optimiser finished')
 
-    return schedule[schedule['player'].isin(player_selection)].copy().reset_index()
+    if loser:
+        LOGGER.warning('Do note you\'re going to lose %d points because of your loser.', extra_loss)
+
+    return {
+        'schedule': schedule[schedule['player'].isin(player_selection)].copy().reset_index(),
+        'loser': extra_loss
+    }

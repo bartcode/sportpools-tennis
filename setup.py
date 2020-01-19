@@ -3,13 +3,12 @@ from setuptools import setup
 
 setup(
     name='sportpools-predictor',
-    version='0.1',
+    version='0.1.0',
     python_requires='>=3.7',
     install_requires=[
         'pandas==0.25.3',
         'html5lib==1.0.1',
         'bs4==0.0.1',
-        'scipy==1.4.1',
         'pulp==2.0'
     ],
     packages=find_packages(),

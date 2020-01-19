@@ -42,7 +42,6 @@ def main() -> None:
     parser.add_argument(
         '-l', '--loser',
         help='Selected loser',
-        default='Rafael Nadal',
         type=str,
     )
 

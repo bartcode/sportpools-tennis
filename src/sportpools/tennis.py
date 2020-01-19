@@ -203,11 +203,13 @@ def optimise_selection(schedule_input: pd.DataFrame, selection_limit: int,
         else:
             loser = loser_record.player
 
-            schedule.loc[schedule.player == loser, 'potency'] = TennisPoolEmulator.rounds_to_score(
+            extra_loss = TennisPoolEmulator.rounds_to_score(
                 loser_record.rounds,
                 loser_record.black,
                 True
             )
+
+            schedule.loc[schedule.player == loser, 'potency'] = extra_loss
 
             black_extra = loser_record.black
             selection_limit_extra = 1
@@ -249,7 +251,7 @@ def optimise_selection(schedule_input: pd.DataFrame, selection_limit: int,
     LOGGER.info('Optimiser finished')
 
     if loser:
-        LOGGER.warning('Do note you\'re going to lose %d points because of your loser.', extra_loss)
+        LOGGER.warning('Do note you\'re going to lose %d points because of your loser.', -extra_loss)
 
     return {
         'schedule': schedule[schedule['player'].isin(player_selection)].copy().reset_index(),

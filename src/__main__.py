@@ -22,7 +22,8 @@ def main() -> None:
         '-f', '--file',
         help='Path to file to import',
         type=str,
-        default='./data/Tennis Abstract_ 2020 Australian Open Men\'s Draw Forecast Forecast.htm'
+        default='./data/Tennis Abstract_ 2020 Australian Open Men\'s Draw Forecast Forecast.htm',
+        required=True,
     )
     parser.add_argument(
         '-b', '--black-points',
@@ -50,16 +51,18 @@ def main() -> None:
         .add_features() \
         .get_results()
 
-    selection_optimum = optimise_selection(pool_results,
-                                           selection_limit=args.count,
-                                           black_points_limit=args.black_points)
+    selection_optimum = optimise_selection(
+        pool_results,
+        selection_limit=args.count,
+        black_points_limit=args.black_points
+    )
 
     LOGGER.info('Optimal set of players is as follows:')
     LOGGER.info('\r\n%s', selection_optimum.head(25))
     LOGGER.info('The selection of these players results in %d points with %d black points',
                 selection_optimum['potency'].sum(),
                 selection_optimum['black'].sum())
-    LOGGER.info('Select your loser in this order:')
+    LOGGER.info('Select your joker in this order:')
     LOGGER.info('\r\n%s',
                 str(selection_optimum[selection_optimum['rounds'] >= 4]
                     .sort_values(by=['black'], ascending=True)

@@ -102,17 +102,17 @@ class TennisPoolEmulator:
         LOGGER.info('Emulating round %s', round_str)
 
         if not self.standings:
-            LOGGER.info('Converting pool into list of players')
+            LOGGER.debug('Converting pool into list of players')
             self.standings: List[Player] = list(map(
                 lambda x: Player(x['player'], x['seed'], -1),
                 self._schedule.to_dict(orient='records')))
 
-        LOGGER.info('Assigning odds to player for round %s', round_str)
+        LOGGER.debug('Assigning odds to player for round %s', round_str)
 
         for player in self.standings:
             player.round_odds = self.__get_round_odds(round_str, player.player)
 
-        LOGGER.info('Playing matches')
+        LOGGER.debug('Playing matches')
         index = 0
         while index < len(self.standings):
             while self.standings[index].terminated:
@@ -186,11 +186,10 @@ class TennisPool:
         """
         Load data and apply basic filtering.
         :param data_file: Path to data file.
-        :return: DataFrame of
+        :return: DataFrame with required columns.
         """
         LOGGER.info('Loading data from %s', data_file)
-
-        table = pd.read_html(data_file, skiprows=2)[0].drop(1, axis=1)
+        table = pd.read_html(data_file, skiprows=1)[0].drop(1, axis=1)
 
         filtered = table[table.columns[0:8]]
         filtered.columns = ['player'] + ROUNDS

@@ -9,6 +9,8 @@ setup(
         'pandas==0.25.3',
         'html5lib==1.0.1',
         'bs4==0.0.1',
+        'scipy==1.4.1',
+        'pulp==2.0'
     ],
     packages=find_packages(),
     include_package_data=True,

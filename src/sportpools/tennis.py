@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import List, Optional
 
 import pandas as pd
+from pulp import LpMaximize, LpProblem, LpVariable, LpInteger
 
 LOGGER = logging.getLogger(__name__)
 ROUNDS = ['r64', 'r32', 'r16', 'qf', 'sm', 'f', 'w']
@@ -334,6 +335,42 @@ class TennisPool:
         return data
 
 
-class TennisSelectionOptimizer:
-    def __init__(self, schedule: pd.DataFrame):
-        self.schedule = schedule
+def optimise_selection(schedule: pd.DataFrame, selection_limit: int, black_points_limit: int) -> pd.DataFrame:
+    """
+    Optimise player selection.
+    :param schedule: Players and their schedule.
+    :param selection_limit: Number of players to choose.
+    :param black_points_limit: Maximum number of black points.
+    :return: Optimal selection
+    """
+    LOGGER.info('Optimising selection')
+
+    players = schedule['player'].tolist()
+    potency = schedule['potency'].tolist()
+    black_points = schedule['black'].tolist()
+
+    param_player = range(len(schedule))
+
+    # Declare problem instance, maximization problem
+    probability = LpProblem('PlayerSelection', LpMaximize)
+
+    # Declare decision variable x, which is 1 if a
+    # player is part of the selection and 0 else
+    param_x = LpVariable.matrix('x', list(param_player), 0, 1, LpInteger)
+
+    # Objective function -> Maximize potency
+    probability += sum(potency[p] * param_x[p] for p in param_player)
+
+    # Constraint definition
+    probability += sum(param_x[p] for p in param_player) == selection_limit
+    probability += sum(black_points[p] * param_x[p] for p in param_player) <= black_points_limit
+
+    # Start solving the problem instance
+    probability.solve()
+
+    # Extract solution
+    player_selection = [players[p] for p in param_player if param_x[p].varValue]
+
+    LOGGER.info('Optimiser finished')
+
+    return schedule[schedule['player'].isin(player_selection)].copy().reset_index()

@@ -28,8 +28,8 @@ def main() -> None:
         required=True,
     )
     parser.add_argument(
-        '-b', '--black-points',
-        help='Path to file to import',
+        '-b', '--black', '--black-points',
+        help='Total number of black points to use',
         type=int,
         default=20
     )

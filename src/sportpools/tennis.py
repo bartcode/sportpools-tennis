@@ -239,7 +239,7 @@ def optimise_selection(schedule_input: pd.DataFrame, selection_limit: int,
     # player is part of the selection and 0 else
     param_x = LpVariable.matrix('x', list(param_player), 0, 1, LpInteger)
 
-    # Objective function -> Maximize potency
+    # Objective function -> Maximise potency
     probability += sum(potency[p] * param_x[p] for p in param_player)
 
     # Constraint definition

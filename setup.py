@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
     name='sportpools-predictor',
-    version='0.1.1',
+    version='0.1.2',
     python_requires='>=3.7',
     install_requires=[
         'pandas==0.25.3',

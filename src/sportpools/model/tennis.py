@@ -9,13 +9,14 @@ from typing import List, Optional, Any, Dict
 import pandas as pd
 from pulp import LpMaximize, LpProblem, LpVariable, LpInteger
 
-from src.sportpools.emulator import TennisPoolEmulator
+from sportpools.model.emulator import TennisPoolEmulator
 
 LOGGER = logging.getLogger(__name__)
 
 
 class TennisPool:
     """"Tennis pool data loader"""
+
     _data: pd.DataFrame = None
 
     def __init__(self, rounds: List[str]):
@@ -31,11 +32,11 @@ class TennisPool:
         :param data_file: Path to data file.
         :return: DataFrame with required columns.
         """
-        LOGGER.info('Loading data from %s', data_file)
+        LOGGER.info("Loading data from %s", data_file)
         table = pd.read_html(data_file, skiprows=1)[0].drop(1, axis=1)
 
         filtered = table[table.columns[0:8]]
-        filtered.columns = ['player'] + self._ROUNDS
+        filtered.columns = ["player"] + self._ROUNDS
 
         self._data = filtered
 
@@ -53,12 +54,13 @@ class TennisPool:
         Apply filters to clean the data.
         :return: Self
         """
-        LOGGER.info('Applying filters')
+        LOGGER.info("Applying filters")
 
-        self._data = self._data \
-            .pipe(TennisPool.extract_seed) \
-            .pipe(TennisPool.clean_invalid_rows) \
+        self._data = (
+            self._data.pipe(TennisPool.extract_seed)
+            .pipe(TennisPool.clean_invalid_rows)
             .pipe(TennisPool.convert_columns, self._ROUNDS)
+        )
 
         return self
 
@@ -67,12 +69,13 @@ class TennisPool:
         Extract and add features.
         :return: Self
         """
-        LOGGER.info('Adding features')
+        LOGGER.info("Adding features")
 
-        self._data = self._data \
-            .pipe(TennisPool.extract_seed) \
-            .pipe(TennisPool.clean_player_name) \
+        self._data = (
+            self._data.pipe(TennisPool.extract_seed)
+            .pipe(TennisPool.clean_player_name)
             .pipe(TennisPool.determine_black_points)
+        )
 
         return self
 
@@ -112,7 +115,7 @@ class TennisPool:
 
             return points
 
-        data['black'] = data['seed'].map(seed_to_black_points)
+        data["black"] = data["seed"].map(seed_to_black_points)
 
         return data
 
@@ -124,13 +127,13 @@ class TennisPool:
         :param rounds: Number of self._ROUNDS a player makes it through
         :return: DataFrame with converted columns
         """
-        LOGGER.info('Converting column data to floats')
+        LOGGER.info("Converting column data to floats")
 
         pd.options.mode.chained_assignment = None
 
         for column in data.columns:
             if column in rounds:
-                data[column] = data[column].str.rstrip('%').astype(float) / 100
+                data[column] = data[column].str.rstrip("%").astype(float) / 100
 
         return data
 
@@ -141,11 +144,9 @@ class TennisPool:
         :param data: DataFrame
         :return: DataFrame with clean player names
         """
-        LOGGER.info('Cleaning player names')
+        LOGGER.info("Cleaning player names")
 
-        data['player'] = data['player'] \
-            .str.replace(r'\(.*?\)', '') \
-            .str.strip()
+        data["player"] = data["player"].str.replace(r"\(.*?\)", "").str.strip()
 
         return data
 
@@ -156,9 +157,9 @@ class TennisPool:
         :param data: DataFrame
         :return: DataFrame with valid rows.
         """
-        LOGGER.info('Cleaning invalid rows')
+        LOGGER.info("Cleaning invalid rows")
 
-        return data[(data['player'] != 'Player') & (~data['player'].isnull())]
+        return data[(data["player"] != "Player") & (~data["player"].isnull())]
 
     @staticmethod
     def extract_seed(data: pd.DataFrame) -> pd.DataFrame:
@@ -167,18 +168,20 @@ class TennisPool:
         :param data: DataFrame
         :return: Enriched DataFrame.
         """
-        LOGGER.info('Extracting seeds from player names')
+        LOGGER.info("Extracting seeds from player names")
 
-        data['seed'] = data['player'] \
-            .str.extract(r'(\d+).*') \
-            .fillna(0) \
-            .astype(int)
+        data["seed"] = data["player"].str.extract(r"(\d+).*").fillna(0).astype(int)
 
         return data
 
 
-def optimise_selection(schedule_input: pd.DataFrame, selection_limit: int,
-                       black_points_limit: int, rounds: List[str], loser: Optional[str] = None) -> Dict[str, Any]:
+def optimise_selection(
+    schedule_input: pd.DataFrame,
+    selection_limit: int,
+    black_points_limit: int,
+    rounds: List[str],
+    loser: Optional[str] = None,
+) -> Dict[str, Any]:
     """
     Optimise player selection.
     :param schedule_input: Players and their schedule.
@@ -188,7 +191,7 @@ def optimise_selection(schedule_input: pd.DataFrame, selection_limit: int,
     :param loser: Selected loser
     :return: Optimal selection
     """
-    LOGGER.info('Optimising selection')
+    LOGGER.info("Optimising selection")
 
     schedule = schedule_input.copy()
     black_extra = 0
@@ -196,10 +199,10 @@ def optimise_selection(schedule_input: pd.DataFrame, selection_limit: int,
     extra_loss = 0
 
     if loser:
-        loser_record = schedule[schedule['player'].str.lower() == loser.lower()].iloc[0]
+        loser_record = schedule[schedule["player"].str.lower() == loser.lower()].iloc[0]
 
         if loser_record.empty:
-            LOGGER.warning('Unable to find player %s in draw', loser)
+            LOGGER.warning("Unable to find player %s in draw", loser)
             loser = None
         else:
             loser = loser_record.player
@@ -211,40 +214,47 @@ def optimise_selection(schedule_input: pd.DataFrame, selection_limit: int,
             # )
 
             extra_loss = TennisPoolEmulator.probabilities_to_score(
-                round_probs=loser_record[rounds],
-                black=loser_record.black,
-                loser=True
+                round_probs=loser_record[rounds], black=loser_record.black, loser=True
             )
 
-            schedule.loc[schedule.player == loser, 'potency'] = extra_loss
+            schedule.loc[schedule.player == loser, "potency"] = extra_loss
 
             black_extra = loser_record.black
             selection_limit_extra = 1
-            LOGGER.info('Allowing %d extra black points, because of your selected loser', black_extra)
-            LOGGER.info('Adding the loser to your selection, and simultaneously increasing the limit of your'
-                        'selection, such that your loser is taken into account.')
+            LOGGER.info(
+                "Allowing %d extra black points, because of your selected loser",
+                black_extra,
+            )
+            LOGGER.info(
+                "Adding the loser to your selection, and simultaneously increasing the limit of your"
+                "selection, such that your loser is taken into account."
+            )
 
     black_points_limit += black_extra
 
-    players = schedule['player'].tolist()
-    potency = schedule['potency'].tolist()
-    black_points = schedule['black'].tolist()
+    players = schedule["player"].tolist()
+    potency = schedule["potency"].tolist()
+    black_points = schedule["black"].tolist()
 
     param_player = range(len(schedule))
 
     # Declare problem instance, maximization problem
-    probability = LpProblem('PlayerSelection', LpMaximize)
+    probability = LpProblem("PlayerSelection", LpMaximize)
 
     # Declare decision variable x, which is 1 if a
     # player is part of the selection and 0 else
-    param_x = LpVariable.matrix('x', list(param_player), 0, 1, LpInteger)
+    param_x = LpVariable.matrix("x", list(param_player), 0, 1, LpInteger)
 
     # Objective function -> Maximise potency
     probability += sum(potency[p] * param_x[p] for p in param_player)
 
     # Constraint definition
-    probability += sum(param_x[p] for p in param_player) == (selection_limit + selection_limit_extra)
-    probability += sum(black_points[p] * param_x[p] for p in param_player) <= black_points_limit
+    probability += sum(param_x[p] for p in param_player) == (
+        selection_limit + selection_limit_extra
+    )
+    probability += (
+        sum(black_points[p] * param_x[p] for p in param_player) <= black_points_limit
+    )
 
     if loser:
         probability += param_x[players.index(loser)] == 1
@@ -255,12 +265,16 @@ def optimise_selection(schedule_input: pd.DataFrame, selection_limit: int,
     # Extract solution
     player_selection = [players[p] for p in param_player if param_x[p].varValue]
 
-    LOGGER.info('Optimiser finished')
+    LOGGER.info("Optimiser finished")
 
     if loser:
-        LOGGER.warning('Do note you\'re going to lose %d points because of your loser.', -extra_loss)
+        LOGGER.warning(
+            "Do note you're going to lose %d points because of your loser.", -extra_loss
+        )
 
     return {
-        'schedule': schedule[schedule['player'].isin(player_selection)].copy().reset_index(),
-        'loser': extra_loss
+        "schedule": schedule[schedule["player"].isin(player_selection)]
+        .copy()
+        .reset_index(),
+        "loser": extra_loss,
     }

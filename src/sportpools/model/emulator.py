@@ -18,6 +18,7 @@ class Player:
     """
     A single player.
     """
+
     player: str
     seed: int
     round_odds: float
@@ -39,6 +40,7 @@ class TennisPoolEmulator:
     """
     Emulate tennis pool matches.
     """
+
     standings: pd.DataFrame = None
 
     def __init__(self, schedule: pd.DataFrame):
@@ -50,7 +52,7 @@ class TennisPoolEmulator:
         Emulate the draw.
         :return: None
         """
-        LOGGER.info('Emulating the entire draw')
+        LOGGER.info("Emulating the entire draw")
 
         for round_str in rounds:
             self.play_round(round_str)
@@ -65,8 +67,9 @@ class TennisPoolEmulator:
         :param rounds: Rounds to play
         :return: DataFrame
         """
-        self._schedule = self._schedule \
-            .pipe(TennisPoolEmulator.determine_score_potency, rounds)
+        self._schedule = self._schedule.pipe(
+            TennisPoolEmulator.determine_score_potency, rounds
+        )
 
         return self
 
@@ -79,20 +82,22 @@ class TennisPoolEmulator:
         Update the original schedule DataFrame with updated rounds the player make it to.
         :return: DataFrame
         """
-        LOGGER.info('Updating original schedule')
+        LOGGER.info("Updating original schedule")
 
-        player_rounds = pd.DataFrame({
-            'player': [p.player for p in self.standings],
-            'rounds': [p.round_index for p in self.standings]
-        })
+        player_rounds = pd.DataFrame(
+            {
+                "player": [p.player for p in self.standings],
+                "rounds": [p.round_index for p in self.standings],
+            }
+        )
 
-        self._schedule = self._schedule.merge(player_rounds, on='player')
+        self._schedule = self._schedule.merge(player_rounds, on="player")
 
         return self._schedule
 
     def __get_round_odds(self, round_str: str, name: str) -> float:
         """Determine odds per round"""
-        return self._schedule[self._schedule['player'] == name][round_str].iloc[0]
+        return self._schedule[self._schedule["player"] == name][round_str].iloc[0]
 
     def play_round(self, round_str: str) -> None:
         """
@@ -100,20 +105,23 @@ class TennisPoolEmulator:
         :param round_str: Round name
         :return: None
         """
-        LOGGER.info('Emulating round %s', round_str)
+        LOGGER.info("Emulating round %s", round_str)
 
         if not self.standings:
-            LOGGER.debug('Converting pool into list of players')
-            self.standings: List[Player] = list(map(
-                lambda x: Player(x['player'], x['seed'], -1),
-                self._schedule.to_dict(orient='records')))
+            LOGGER.debug("Converting pool into list of players")
+            self.standings: List[Player] = list(
+                map(
+                    lambda x: Player(x["player"], x["seed"], -1),
+                    self._schedule.to_dict(orient="records"),
+                )
+            )
 
-        LOGGER.debug('Assigning odds to player for round %s', round_str)
+        LOGGER.debug("Assigning odds to player for round %s", round_str)
 
         for player in self.standings:
             player.round_odds = self.__get_round_odds(round_str, player.player)
 
-        LOGGER.debug('Playing matches')
+        LOGGER.debug("Playing matches")
         index = 0
         while index < len(self.standings):
             while self.standings[index].terminated:
@@ -133,11 +141,11 @@ class TennisPoolEmulator:
                 player_two.terminated = True
                 player_one.round_index = player_one.round_index + 1
 
-                LOGGER.info('%s d. %s', player_one.player, player_two.player)
+                LOGGER.info("%s d. %s", player_one.player, player_two.player)
             else:
                 player_one.terminated = True
                 player_two.round_index = player_two.round_index + 1
-                LOGGER.info('%s d. %s', player_two.player, player_one.player)
+                LOGGER.info("%s d. %s", player_two.player, player_one.player)
 
             self.standings[player_one.index] = player_one
             self.standings[player_two.index] = player_two
@@ -167,7 +175,9 @@ class TennisPoolEmulator:
         return base_score + second_week_score + win_score
 
     @staticmethod
-    def probabilities_to_score(round_probs: List[float], black: int, loser: bool) -> float:
+    def probabilities_to_score(
+        round_probs: List[float], black: int, loser: bool
+    ) -> float:
         """
         Determine a player's score based on the probabilities per round
         his associated black points.
@@ -197,6 +207,12 @@ class TennisPoolEmulator:
         # data['potency'] = data.apply(lambda x: TennisPoolEmulator.rounds_to_score(x['rounds'], x['black'], False),
         #                              axis=1)
 
-        data['potency'] = data.apply(lambda x, r: TennisPoolEmulator.probabilities_to_score(x[r], x['black'], False), axis=1, r=rounds)
+        data["potency"] = data.apply(
+            lambda x, r: TennisPoolEmulator.probabilities_to_score(
+                x[r], x["black"], False
+            ),
+            axis=1,
+            r=rounds,
+        )
 
         return data

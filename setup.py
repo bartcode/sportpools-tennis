@@ -2,9 +2,9 @@ from setuptools import setup, find_namespace_packages
 
 setup(
     name="model-predictor",
-    version="0.1.3",
+    version="0.1.4",
     python_requires=">=3.7",
-    install_requires=["pandas==0.25.3", "html5lib==1.0.1", "bs4==0.0.1", "pulp==2.0"],
+    install_requires=["pandas~=1.2", "html5lib~=1.1", "bs4~=0.0.1", "pulp~=2.4"],
     packages=find_namespace_packages(where="src", exclude=["tests"]),
     package_dir={"": "src"},
     include_package_data=True,

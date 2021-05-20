@@ -13,7 +13,7 @@ described on [TennisAbstract](https://tennisabstract.com/).
 
 ## Installation
 ```bash
-$ pip install git+https://github.com/bartcode/sportpools-tennis.git
+pip install git+https://github.com/bartcode/sportpools-tennis.git
 ```
 
 ## Usage

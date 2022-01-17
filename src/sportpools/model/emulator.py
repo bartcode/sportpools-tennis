@@ -123,34 +123,37 @@ class TennisPoolEmulator:
 
         LOGGER.debug("Playing matches")
         index = 0
-        while index < len(self.standings):
-            while self.standings[index].terminated:
+        try:
+            while index < len(self.standings):
+                while self.standings[index].terminated:
+                    index += 1
+
+                player_one = self.standings[index]
+                player_one.index = index
+
                 index += 1
+                while self.standings[index].terminated:
+                    index += 1
 
-            player_one = self.standings[index]
-            player_one.index = index
+                player_two = self.standings[index]
+                player_two.index = index
 
-            index += 1
-            while self.standings[index].terminated:
+                if player_one > player_two:
+                    player_two.terminated = True
+                    player_one.round_index = player_one.round_index + 1
+
+                    LOGGER.info("%s d. %s", player_one.player, player_two.player)
+                else:
+                    player_one.terminated = True
+                    player_two.round_index = player_two.round_index + 1
+                    LOGGER.info("%s d. %s", player_two.player, player_one.player)
+
+                self.standings[player_one.index] = player_one
+                self.standings[player_two.index] = player_two
+
                 index += 1
-
-            player_two = self.standings[index]
-            player_two.index = index
-
-            if player_one > player_two:
-                player_two.terminated = True
-                player_one.round_index = player_one.round_index + 1
-
-                LOGGER.info("%s d. %s", player_one.player, player_two.player)
-            else:
-                player_one.terminated = True
-                player_two.round_index = player_two.round_index + 1
-                LOGGER.info("%s d. %s", player_two.player, player_one.player)
-
-            self.standings[player_one.index] = player_one
-            self.standings[player_two.index] = player_two
-
-            index += 1
+        except IndexError:
+            pass
 
     @staticmethod
     def rounds_to_score(rounds: int, black: int, loser: bool) -> int:

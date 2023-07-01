@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "sportpools-tennis"
+version = "0.1.5"
+description = "Optimizer for selecting tennis players in Sportpools."
+authors = ["Bart Hazen <hazenbart@gmail.com>"]
+license = "GNU General Public License v3.0"
+readme = "README.md"
+packages = [{ include = "sportpools", from = "src" }]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+pandas = "^2.0.3"
+html5lib = "^1.1"
+bs4 = "^0.0.1"
+pulp = "^2.7.0"
+lxml = "^4.9.2"
+
+[tool.poetry.scripts]
+sportpools = "sportpools.__main__:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

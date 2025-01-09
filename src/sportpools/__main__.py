@@ -4,13 +4,12 @@ Sportpools optimiser
 import argparse
 import logging.config
 
-import pkg_resources
-from sportpools.model.tennis import TennisPool, optimise_selection
-from sportpools.model.emulator import TennisPoolEmulator
+import coloredlogs
 
-logging.config.fileConfig(
-    pkg_resources.resource_filename("sportpools.resources", "logger.ini"), disable_existing_loggers=False
-)
+from sportpools.model.emulator import TennisPoolEmulator
+from sportpools.model.tennis import TennisPool, optimise_selection
+
+coloredlogs.install()
 LOGGER = logging.getLogger(__name__)
 ROUNDS = ["r64", "r32", "r16", "qf", "sm", "f", "w"]
 

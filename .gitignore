@@ -133,3 +133,5 @@ data/
 # IDE
 .idea/
 .DS_Store
+.cache/
+.zcode/

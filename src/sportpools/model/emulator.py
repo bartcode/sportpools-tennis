@@ -105,7 +105,7 @@ class TennisPoolEmulator:
         :param round_str: Round name
         :return: None
         """
-        LOGGER.info("Emulating round %s", round_str)
+        LOGGER.debug("Emulating round %s", round_str)
 
         if not self.standings:
             LOGGER.debug("Converting pool into list of players")
@@ -142,11 +142,11 @@ class TennisPoolEmulator:
                     player_two.terminated = True
                     player_one.round_index = player_one.round_index + 1
 
-                    LOGGER.info("%s d. %s", player_one.player, player_two.player)
+                    LOGGER.debug("%s d. %s", player_one.player, player_two.player)
                 else:
                     player_one.terminated = True
                     player_two.round_index = player_two.round_index + 1
-                    LOGGER.info("%s d. %s", player_two.player, player_one.player)
+                    LOGGER.debug("%s d. %s", player_two.player, player_one.player)
 
                 self.standings[player_one.index] = player_one
                 self.standings[player_two.index] = player_two
@@ -166,7 +166,7 @@ class TennisPoolEmulator:
         :return: Score
         """
         if loser:
-            return rounds * -10
+            return -min(rounds * 10, 50)
 
         base_score = rounds * (10 - black)
         second_week_score = max(0, rounds - 3) * (10 - black)
@@ -189,12 +189,16 @@ class TennisPoolEmulator:
         :param loser: Whether the player is marked as 'loser'.
         :return: Score
         """
+        if loser:
+            # The kluns costs the team 10 points per round he advances, capped
+            # at 50 in total when he wins the tournament. Reaching the 5th
+            # round already accrues the full 50.
+            probs = np.asarray(round_probs, dtype=float)
+            return float(-10 * probs[:5].sum())
+
         first_week = sum(round_probs[round_probs.index[:3]] * (10 - black))
         second_week = sum(round_probs[round_probs.index[3:-1]] * (2 * (10 - black)))
-        win = round_probs[-1] * 50
-
-        if loser:
-            return sum(np.array(round_probs) * (10 - black))
+        win = round_probs.iloc[-1] * (2 * (10 - black) + 50)
 
         return first_week + second_week + win
 

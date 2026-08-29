@@ -7,11 +7,13 @@ import logging
 from typing import List, Optional, Any, Dict
 
 import pandas as pd
-from pulp import LpMaximize, LpProblem, LpVariable, LpInteger
+from pulp import LpMaximize, LpProblem, LpVariable, LpInteger, PULP_CBC_CMD
 
 from sportpools.model.emulator import TennisPoolEmulator
 
 LOGGER = logging.getLogger(__name__)
+
+SOLVER = PULP_CBC_CMD(msg=False)
 
 
 class TennisPool:
@@ -39,6 +41,19 @@ class TennisPool:
         filtered.columns = ["player"] + self._ROUNDS
 
         self._data = filtered
+
+        return self
+
+    def load_simulated_data(self, simulated: pd.DataFrame) -> TennisPool:
+        """
+        Load pre-computed simulated round probabilities.
+        :param simulated: DataFrame with player, seed, r64..w columns.
+        :return: Self.
+        """
+        LOGGER.info("Loading simulated data with %d players", len(simulated))
+
+        self._data = simulated[["player"] + self._ROUNDS].copy()
+        self._data["seed"] = simulated["seed"].astype(int)
 
         return self
 
@@ -71,9 +86,16 @@ class TennisPool:
         """
         LOGGER.info("Adding features")
 
+        if "seed" not in self._data.columns:
+            self._data = self._data.pipe(TennisPool.extract_seed)
+        else:
+            self._data = self._data.assign(
+                seed=self._data["seed"].fillna(0).astype(int)
+            )
+
         self._data = (
-            self._data.pipe(TennisPool.extract_seed)
-            .pipe(TennisPool.clean_player_name)
+            self._data.pipe(TennisPool.clean_player_name)
+            .pipe(TennisPool.deduce_missing_seeds)
             .pipe(TennisPool.determine_black_points)
         )
 
@@ -115,7 +137,7 @@ class TennisPool:
 
             return points
 
-        data["black"] = data["seed"].map(seed_to_black_points)
+        data = data.assign(black=data["seed"].map(seed_to_black_points))
 
         return data
 
@@ -129,11 +151,11 @@ class TennisPool:
         """
         LOGGER.info("Converting column data to floats")
 
-        pd.options.mode.chained_assignment = None
-
         for column in data.columns:
             if column in rounds:
-                data[column] = data[column].str.rstrip("%").astype(float) / 100
+                data = data.assign(
+                    **{column: data[column].str.rstrip("%").astype(float) / 100}
+                )
 
         return data
 
@@ -146,7 +168,9 @@ class TennisPool:
         """
         LOGGER.info("Cleaning player names")
 
-        data["player"] = data["player"].str.replace(r"\(.*?\)", "").str.strip()
+        data = data.assign(
+            player=data["player"].str.replace(r"\(.*?\)", "", regex=True).str.strip()
+        )
 
         return data
 
@@ -170,8 +194,45 @@ class TennisPool:
         """
         LOGGER.info("Extracting seeds from player names")
 
-        data["seed"] = data["player"].str.extract(r"(\d+).*").fillna(0).astype(int)
+        data = data.assign(
+            seed=data["player"].str.extract(r"(\d+).*").fillna(0).astype(int)
+        )
 
+        return data
+
+    @staticmethod
+    def deduce_missing_seeds(data: pd.DataFrame) -> pd.DataFrame:
+        """
+        Backfill seed markers that Tennis Abstract dropped from the export.
+
+        A Grand Slam draw splits into 16 sections of 8 players, each anchored by
+        exactly two seeds at line positions 0 and 7 (32 seeds total). When the
+        forecast HTML omits a ``(NN)`` marker, the seed is still recoverable:
+        every anchor slot that is empty corresponds to a seed number missing from
+        the contiguous 1..32 range.
+
+        :param data: DataFrame in draw order, cleaned of separator rows.
+        :return: DataFrame with backfilled seeds.
+        """
+        seeds = data["seed"].astype(int).tolist()
+        section_size = 8
+        n = len(seeds)
+        # ponytail: anchor slots are the first/last line of each 8-player section;
+        # multiple dropped markers in one draw are assigned in positional order,
+        # which is exact for the common single-drop case and a heuristic beyond it.
+        anchors = [i for i in range(n) if i % section_size in (0, section_size - 1)]
+
+        expected = set(range(1, (n // section_size) * 2 + 1))
+        marked = {s for s in seeds if s > 0}
+        missing = sorted(expected - marked)
+        empty = [i for i in anchors if seeds[i] == 0]
+
+        for idx, seed_num in zip(empty, missing):
+            seeds[idx] = seed_num
+            player = data["player"].iloc[idx]
+            LOGGER.info("Deduced seed %d for %s (marker missing from source)", seed_num, player)
+
+        data = data.assign(seed=seeds)
         return data
 
 
@@ -199,12 +260,13 @@ def optimise_selection(
     extra_loss = 0
 
     if loser:
-        loser_record = schedule[schedule["player"].str.lower() == loser.lower()].iloc[0]
+        loser_records = schedule[schedule["player"].str.lower() == loser.lower()]
 
-        if loser_record.empty:
+        if loser_records.empty:
             LOGGER.warning("Unable to find player %s in draw", loser)
             loser = None
         else:
+            loser_record = loser_records.iloc[0]
             loser = loser_record.player
 
             # extra_loss = TennisPoolEmulator.rounds_to_score(
@@ -260,7 +322,7 @@ def optimise_selection(
         probability += param_x[players.index(loser)] == 1
 
     # Start solving the problem instance
-    probability.solve()
+    probability.solve(SOLVER)
 
     # Extract solution
     player_selection = [players[p] for p in param_player if param_x[p].varValue]
@@ -278,3 +340,147 @@ def optimise_selection(
         .reset_index(),
         "loser": extra_loss,
     }
+
+
+def optimise_team(
+    schedule_input: pd.DataFrame,
+    selection_limit: int,
+    black_points_limit: int,
+    rounds: List[str],
+    forced_kluns: Optional[str] = None,
+    forced_joker: Optional[str] = None,
+    locked_players: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """
+    Optimise the full Sportpools team: normal players, joker and kluns.
+
+    Maximises total expected points under the real Sportpools rules:
+    - a team counts `selection_limit` players, one of which is the joker and
+      one the kluns (distinct players, both within the selection);
+    - normal players score 10-black per win, doubled from round 4, +50 for
+      the title (`potency`);
+    - the joker scores normally plus a one-time bonus of (50 - 5*black) for
+      reaching round 4;
+    - the kluns scores nothing but loses 10 points per round he advances
+      (capped at 50);
+    - the kluns's black points don't count against the budget and grant that
+      many extra budget points for the remaining selection.
+
+    :param schedule_input: Players with potency, black and round probabilities.
+    :param selection_limit: Total team size (including joker and kluns).
+    :param black_points_limit: Black points budget for the non-kluns players.
+    :param rounds: Round column names, in win order (r64 first).
+    :param forced_kluns: Player to force as kluns, for comparing alternatives.
+    :param locked_players: Players forced into the selection (kept when
+        re-optimising around manual choices).
+    :return: Optimal selection with roles and expected points.
+    """
+    if selection_limit < 2:
+        raise ValueError("selection_limit must be at least 2 (joker + kluns)")
+
+    LOGGER.debug("Optimising team of %d players (joker and kluns included)", selection_limit)
+
+    schedule = schedule_input.copy().reset_index(drop=True)
+
+    # One-time joker bonus for reaching round 4 = winning the first 3 matches.
+    # Expected kluns penalty: 10 per round advanced, capped at 50 in total.
+    schedule = schedule.assign(
+        joker_bonus=(50 - 5 * schedule["black"]) * schedule[rounds[2]],
+        kluns_penalty=-10 * schedule[rounds[:5]].sum(axis=1),
+    )
+
+    players = schedule["player"].tolist()
+    potency = schedule["potency"].tolist()
+    black_points = schedule["black"].tolist()
+    joker_bonus = schedule["joker_bonus"].tolist()
+    kluns_penalty = schedule["kluns_penalty"].tolist()
+
+    param_player = range(len(schedule))
+
+    problem = LpProblem("TeamSelection", LpMaximize)
+
+    # x: selected, j: joker, k: kluns
+    param_x = LpVariable.matrix("x", list(param_player), 0, 1, LpInteger)
+    param_j = LpVariable.matrix("j", list(param_player), 0, 1, LpInteger)
+    param_k = LpVariable.matrix("k", list(param_player), 0, 1, LpInteger)
+
+    problem += sum(
+        potency[p] * (param_x[p] - param_k[p])
+        + joker_bonus[p] * param_j[p]
+        + kluns_penalty[p] * param_k[p]
+        for p in param_player
+    )
+
+    problem += sum(param_x[p] for p in param_player) == selection_limit
+    problem += sum(param_j[p] for p in param_player) == 1
+    problem += sum(param_k[p] for p in param_player) == 1
+
+    if forced_kluns is not None:
+        if forced_kluns not in players:
+            raise ValueError(f"Unknown forced kluns: {forced_kluns}")
+        problem += param_k[players.index(forced_kluns)] == 1
+
+    if forced_joker is not None:
+        if forced_joker not in players:
+            raise ValueError(f"Unknown forced joker: {forced_joker}")
+        problem += param_j[players.index(forced_joker)] == 1
+
+    for locked in locked_players or []:
+        if locked not in players:
+            raise ValueError(f"Unknown locked player: {locked}")
+        problem += param_x[players.index(locked)] == 1
+
+    for p in param_player:
+        problem += param_j[p] <= param_x[p]
+        problem += param_k[p] <= param_x[p]
+        problem += param_j[p] + param_k[p] <= 1
+
+    # The kluns's black points are recycled: they neither count against the
+    # budget nor consume it, and add their value as extra budget.
+    problem += (
+        sum(black_points[p] * (param_x[p] - 2 * param_k[p]) for p in param_player)
+        <= black_points_limit
+    )
+
+    problem.solve(SOLVER)
+
+    selected = [players[p] for p in param_player if param_x[p].varValue]
+    joker = [players[p] for p in param_player if param_j[p].varValue][0]
+    kluns = [players[p] for p in param_player if param_k[p].varValue][0]
+
+    result = schedule[schedule["player"].isin(selected)].copy().reset_index(drop=True)
+    result = result.assign(
+        role=[
+            "joker" if player == joker else "kluns" if player == kluns else "player"
+            for player in result["player"]
+        ]
+    )
+
+    LOGGER.debug(
+        "Optimiser finished: joker=%s, kluns=%s, expected points=%.1f",
+        joker,
+        kluns,
+        _team_expected_points(result),
+    )
+
+    return {
+        "schedule": result,
+        "joker": joker,
+        "kluns": kluns,
+        "expected_points": _team_expected_points(result),
+    }
+
+
+def _team_expected_points(selection: pd.DataFrame) -> float:
+    """
+    Compute total expected points of a selection with roles assigned.
+    """
+    points = 0.0
+    for _, row in selection.iterrows():
+        if row["role"] == "kluns":
+            points += row["kluns_penalty"]
+        else:
+            points += row["potency"]
+            if row["role"] == "joker":
+                points += row["joker_bonus"]
+    return float(points)

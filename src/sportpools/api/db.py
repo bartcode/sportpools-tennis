@@ -125,5 +125,23 @@ class TeamStore:
             "age_hours": (time.time() - row["created_at"]) / 3600,
         }
 
+    def latest_prediction(self) -> Optional[dict]:
+        """
+        The most recently persisted prediction across all request variants.
+        :return: {"key", "payload", "age_hours"} or None when nothing cached.
+        """
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT key, payload, created_at FROM predictions"
+                " ORDER BY created_at DESC LIMIT 1"
+            ).fetchone()
+        if row is None:
+            return None
+        return {
+            "key": row["key"],
+            "payload": json.loads(row["payload"]),
+            "age_hours": (time.time() - row["created_at"]) / 3600,
+        }
+
 
 STORE = TeamStore()

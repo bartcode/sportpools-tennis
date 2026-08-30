@@ -50,6 +50,11 @@ export function getJobResult(jobId: string) {
   return api<PredictionResult>(`/api/jobs/${jobId}/result`);
 }
 
+/** The most recently cached prediction as a finished job (404 when none). */
+export function getLatestPrediction() {
+  return api<{ job_id: string }>("/api/predictions/latest");
+}
+
 export interface EvaluateBody {
   job_id: string;
   surface: string;

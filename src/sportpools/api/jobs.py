@@ -183,6 +183,37 @@ class JobManager:
         self._prune()
         return job
 
+    def latest_cached(self) -> Optional[str]:
+        """
+        Serve the most recently cached prediction as a finished job, so a
+        freshly opened page can restore the last dashboard without running
+        (or clicking) anything. Returns None when nothing is cached.
+        """
+        try:
+            cached = _store().latest_prediction()
+        except Exception as error:  # noqa: BLE001 - cache is optional
+            LOGGER.warning("Prediction cache read failed: %s", error)
+            return None
+        if cached is None:
+            return None
+
+        payload = cached["payload"]
+        request = PredictionRequest(
+            tournament=payload.get("tournament", "us-open"),
+            year=int(payload.get("year", 2026)),
+            surfaces=tuple(payload.get("surfaces") or ["hard"]),
+            black_points=int(payload.get("black_points", 20)),
+            count=int(payload.get("count", 15)),
+        )
+        with self._registry_lock:
+            job = self._register_done_job(cached["key"], payload, request)
+        LOGGER.info(
+            "Latest cached prediction (%.1fh old) served as job %s",
+            cached["age_hours"],
+            job.id,
+        )
+        return job.id
+
     def get(self, job_id: str) -> Optional[Job]:
         """Fetch a job by id."""
         return self._jobs.get(job_id)

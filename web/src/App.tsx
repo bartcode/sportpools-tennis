@@ -42,6 +42,7 @@ import {
   evaluateTeam,
   getJob,
   getJobResult,
+  getLatestPrediction,
   optimizeTeam,
   startPrediction,
   type PredictBody,
@@ -134,6 +135,25 @@ export default function App() {
       toast.error(`Prediction failed: ${jobStatus.error ?? "unknown error"}`);
     }
   }, [jobStatus?.status, jobId, result]);
+
+  // First visit (nothing stored locally): restore the latest cached
+  // prediction so the dashboard loads without touching the Predict button.
+  const latestAttempted = useRef(false);
+  useEffect(() => {
+    if (jobId !== null || latestAttempted.current) return;
+    latestAttempted.current = true;
+
+    getLatestPrediction()
+      .then(({ job_id }) => {
+        try {
+          localStorage.setItem(JOB_STORAGE_KEY, job_id);
+        } catch {
+          // storage unavailable
+        }
+        setJobId(job_id);
+      })
+      .catch(() => undefined); // nothing cached yet: show the empty form
+  }, [jobId]);
 
   // The server no longer knows the stored job (e.g. after a restart):
   // re-run the stored prediction, which the backend serves from its

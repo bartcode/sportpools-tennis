@@ -127,6 +127,17 @@ def create_app() -> FastAPI:
             raise HTTPException(409, f"Job is {job.status}: {job.stage}")
         return job.result_payload
 
+    @app.get("/api/predictions/latest")
+    def latest_prediction() -> dict:
+        """
+        The most recently cached prediction as a finished job, so a fresh
+        page load can restore the last dashboard without re-running it.
+        """
+        job_id = JOBS.latest_cached()
+        if job_id is None:
+            raise HTTPException(404, "No cached prediction yet")
+        return {"job_id": job_id}
+
     @app.post("/api/evaluate")
     def evaluate(request: EvaluateRequest) -> dict:
         job = JOBS.get(request.job_id)

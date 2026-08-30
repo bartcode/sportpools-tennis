@@ -301,3 +301,43 @@ def test_tournaments_endpoint(client):
         assert len(tournament["years"]) == 3
         assert tournament["default_year"] in (current_year, current_year + 1)
         assert tournament["default_year"] in tournament["years"]
+
+
+def test_latest_prediction_endpoint(client, prediction):
+    response = client.get("/api/predictions/latest")
+    assert response.status_code == 200
+    job_id = response.json()["job_id"]
+
+    status = client.get(f"/api/jobs/{job_id}").json()
+    assert status["status"] == "done"
+
+    result = client.get(f"/api/jobs/{job_id}/result").json()
+    assert result["models"]["hard"]["team"] == prediction["result"]["models"]["hard"]["team"]
+
+    # the restored pool still supports evaluation
+    team = result["models"]["hard"]["team"]
+    evaluation = client.post(
+        "/api/evaluate",
+        json={
+            "job_id": job_id,
+            "surface": "hard",
+            "players": [p["player"] for p in team["players"]],
+            "joker": team["joker"],
+            "kluns": team["kluns"],
+        },
+    )
+    assert evaluation.status_code == 200
+    assert evaluation.json()["valid"] is True
+
+
+def test_latest_prediction_without_cache(client, tmp_path, monkeypatch):
+    import sportpools.api.db as db_module
+    from sportpools.api.db import TeamStore
+
+    original = db_module.STORE
+    monkeypatch.setattr(db_module, "STORE", TeamStore(tmp_path / "empty.db"))
+    try:
+        response = client.get("/api/predictions/latest")
+        assert response.status_code == 404
+    finally:
+        monkeypatch.setattr(db_module, "STORE", original)

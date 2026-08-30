@@ -23,9 +23,12 @@ export function ContributionChart({ evaluation }: { evaluation: EvaluateResult }
   const data = [...evaluation.players].sort(
     (a, b) => a.contribution - b.contribution,
   );
+  // One row per player: the container grows with the selection so every
+  // y-axis label fits without recharts skipping ticks.
+  const height = data.length * 26 + 48;
 
   return (
-    <div className="h-72 w-full">
+    <div style={{ height }} className="w-full">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} layout="vertical" margin={{ left: 8, right: 16 }}>
           <XAxis type="number" fontSize={11} stroke="currentColor" />
@@ -35,6 +38,7 @@ export function ContributionChart({ evaluation }: { evaluation: EvaluateResult }
             width={130}
             fontSize={11}
             stroke="currentColor"
+            interval={0}
           />
           <Tooltip
             cursor={{ fill: "var(--color-muted)", opacity: 0.3 }}

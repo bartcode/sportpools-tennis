@@ -388,11 +388,16 @@ export default function App() {
                   <Badge variant="outline">
                     {result.tournament} {result.year}
                   </Badge>
-                  <span>
-                    ratings matched:{" "}
-                    {coverage.exact + coverage.fuzzy + coverage.estimated}/128
-                    {coverage.unmatched.length > 0 &&
-                      ` (${coverage.unmatched.join(", ")} estimated)`}
+                  <span
+                    title={
+                      coverage.estimated > 0
+                        ? `${coverage.exact} exact, ${coverage.fuzzy} fuzzy name matches; ${coverage.estimated} player(s) without Elo data get a conservative strength estimate`
+                        : `${coverage.exact} exact, ${coverage.fuzzy} fuzzy name matches to the Elo table`
+                    }
+                  >
+                    Elo ratings: {coverage.exact + coverage.fuzzy}/128
+                    {coverage.estimated > 0 &&
+                      ` · ${coverage.estimated} estimated (${coverage.unmatched.join(", ")})`}
                   </span>
                   <SourceAgeChip label="draw" age={result.sources?.draw_age_hours} />
                   <SourceAgeChip label="Elo" age={result.sources?.ratings_age_hours} />

@@ -64,12 +64,12 @@ export function SavedTeamsCard({
         kluns: members.find((m) => m.role === "kluns")?.player ?? "",
       }),
     onSuccess: () => {
-      toast.success("Team opgeslagen");
+      toast.success("Team saved");
       setDialogOpen(false);
       setName("");
       queryClient.invalidateQueries({ queryKey: ["teams"] });
     },
-    onError: (error) => toast.error(`Opslaan mislukt: ${String(error)}`),
+    onError: (error) => toast.error(`Save failed: ${String(error)}`),
   });
 
   const remove = useMutation({
@@ -91,19 +91,19 @@ export function SavedTeamsCard({
       expectedPoints,
     );
     navigator.clipboard.writeText(text).then(
-      () => toast.success("Selectie gekopieerd"),
-      () => toast.error("Kopiëren mislukt"),
+      () => toast.success("Selection copied"),
+      () => toast.error("Copy failed"),
     );
   }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Selecties</CardTitle>
+        <CardTitle className="text-base">Saved teams</CardTitle>
         <CardDescription>
           {canPersist
-            ? "Bewaar je samenstelling of laad een eerdere versie."
-            : "Draai eerst een voorspelling; opgeslagen teams kun je daarna laden."}
+            ? "Save your selection or load an earlier version."
+            : "Run a prediction first; saved teams can be loaded afterwards."}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -114,10 +114,10 @@ export function SavedTeamsCard({
             disabled={!canPersist}
             onClick={() => setDialogOpen(true)}
           >
-            <Save className="size-3.5" /> Opslaan
+            <Save className="size-3.5" /> Save
           </Button>
           <Button size="sm" variant="outline" onClick={copyExport}>
-            <ClipboardCopy className="size-3.5" /> Kopieer selectie
+            <ClipboardCopy className="size-3.5" /> Copy selection
           </Button>
         </div>
 
@@ -131,7 +131,7 @@ export function SavedTeamsCard({
                 <p className="truncate font-medium">{team.name}</p>
                 <p className="text-xs text-muted-foreground">
                   {team.tournament} {team.year} · {team.surface} ·{" "}
-                  {new Date(team.created_at + "Z").toLocaleString("nl-NL", {
+                  {new Date(team.created_at + "Z").toLocaleString("en-GB", {
                     dateStyle: "short",
                     timeStyle: "short",
                   })}
@@ -144,7 +144,7 @@ export function SavedTeamsCard({
                   disabled={!canPersist}
                   onClick={() => onLoad(team.payload)}
                 >
-                  Laad
+                  Load
                 </Button>
                 <Button
                   size="icon-sm"
@@ -158,17 +158,17 @@ export function SavedTeamsCard({
             </div>
           ))}
           {teams.data?.teams.length === 0 && (
-            <p className="text-xs text-muted-foreground">Nog geen teams bewaard.</p>
+            <p className="text-xs text-muted-foreground">No saved teams yet.</p>
           )}
         </div>
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent className="sm:max-w-sm">
             <DialogHeader>
-              <DialogTitle>Team opslaan</DialogTitle>
+              <DialogTitle>Save team</DialogTitle>
             </DialogHeader>
             <Input
-              placeholder="Naam, bijv. 'US Open basis'"
+              placeholder="Name, e.g. 'US Open base'"
               value={name}
               onChange={(event) => setName(event.target.value)}
             />
@@ -178,7 +178,7 @@ export function SavedTeamsCard({
                 onClick={() => save.mutate()}
                 disabled={save.isPending}
               >
-                {save.isPending ? "Opslaan…" : "Opslaan"}
+                {save.isPending ? "Saving…" : "Save"}
               </Button>
             </DialogFooter>
           </DialogContent>

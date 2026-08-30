@@ -153,7 +153,7 @@ def run_prediction(
         ].rename(columns={ROUNDS[2]: "p_r4"})
 
         kluns_options: List[dict] = []
-        report(base + 0.32 * model_span, "Evaluating kluns alternatives")
+        report(base + 0.32 * model_span, "Evaluating loser alternatives")
         candidates = pool_results["player"].tolist()
         for done, candidate in enumerate(candidates, start=1):
             forced = optimise_team(
@@ -176,7 +176,7 @@ def run_prediction(
                 share = 0.32 + 0.55 * done / len(candidates)
                 report(
                     base + share * model_span,
-                    f"Evaluating kluns alternatives ({done}/{len(candidates)})",
+                    f"Evaluating loser alternatives ({done}/{len(candidates)})",
                 )
 
         kluns_options.sort(key=lambda option: option["team_ev"], reverse=True)

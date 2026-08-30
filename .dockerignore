@@ -1,0 +1,11 @@
+.git
+.venv
+.zcode
+.cache
+data
+**/__pycache__
+**/*.pyc
+tests
+web/node_modules
+web/dist
+web/.vite

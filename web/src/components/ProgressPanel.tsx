@@ -11,12 +11,12 @@ import { cn } from "@/lib/utils";
 import type { JobStatus } from "@/types";
 
 const STAGE_HINTS: { match: RegExp; label: string }[] = [
-  { match: /draw/i, label: "Schema ophalen" },
-  { match: /rating|elo/i, label: "Elo-ratings ophalen" },
-  { match: /simulat/i, label: "Toernooi simuleren" },
-  { match: /optimis/i, label: "Team optimaliseren" },
-  { match: /kluns/i, label: "Kluns-alternatieven" },
-  { match: /route/i, label: "Routes & duels" },
+  { match: /draw/i, label: "Fetch draw" },
+  { match: /rating|elo/i, label: "Fetch Elo ratings" },
+  { match: /simulat/i, label: "Simulate tournament" },
+  { match: /optimis/i, label: "Optimise team" },
+  { match: /loser/i, label: "Loser alternatives" },
+  { match: /route/i, label: "Routes & matchups" },
 ];
 
 function stageChecklist(stage: string): { label: string; done: boolean }[] {
@@ -43,7 +43,7 @@ export function ProgressPanel({ status }: { status: JobStatus }) {
           {!failed && (
             <Loader2 className="size-4 animate-spin text-primary" />
           )}
-          Voorspelling wordt berekend
+          Computing prediction
         </CardTitle>
         <CardDescription>
           {failed ? status.error : status.stage}

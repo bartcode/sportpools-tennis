@@ -22,16 +22,16 @@ export function MatchupsCard({ matchups }: { matchups: Matchup[] }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <Swords className="size-4" /> Onderlinge duels
+          <Swords className="size-4" /> Internal matchups
         </CardTitle>
         <CardDescription>
-          Wanneer spelers uit je eigen selectie elkaar kunnen uitschakelen.
+          When players from your own selection can knock each other out.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         {notable.length === 0 && (
           <p className="text-sm text-muted-foreground">
-            Geen realistische onderlinge duels (kans &lt; 2%).
+            No realistic internal matchups (chance &lt; 2%).
           </p>
         )}
         {notable.slice(0, 10).map((matchup) => (
@@ -53,7 +53,7 @@ export function MatchupsCard({ matchups }: { matchups: Matchup[] }) {
         ))}
         {notable.length > 10 && (
           <p className="text-xs text-muted-foreground">
-            +{notable.length - 10} minder waarschijnlijke duels
+            +{notable.length - 10} less likely matchups
           </p>
         )}
       </CardContent>

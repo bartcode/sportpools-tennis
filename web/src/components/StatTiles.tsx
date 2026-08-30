@@ -99,35 +99,35 @@ export function StatTiles({ model, members, evaluation, expectedPoints }: StatTi
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       <Tile
         className="delay-1"
-        label="Verwachte punten"
+        label="Expected points"
         value={expectedPoints.toFixed(1)}
-        sub={evaluation && !evaluation.valid ? "selectie is niet geldig" : model.label}
+        sub={evaluation && !evaluation.valid ? "selection is invalid" : model.label}
         icon={<Target className="size-4" />}
         tone="from-sky-500 to-blue-600"
       />
       <Tile
         className="delay-2"
-        label="Titelkans in team"
+        label="Team title chance"
         value={<AnimatedNumber value={titleChance * 100} format={(v) => `${v.toFixed(1)}%`} />}
-        sub="kans dat iemand wint"
+        sub="chance anyone wins"
         icon={<Trophy className="size-4" />}
         tone="from-amber-400 to-orange-500"
       />
       <Tile
         className="delay-3"
-        label="Verwacht naar ronde 4"
+        label="Expected in round 4"
         value={<AnimatedNumber value={reachR4} format={(v) => v.toFixed(1)} />}
-        sub={`${quarters}/4 kwarten gedekt`}
+        sub={`${quarters}/4 quarters covered`}
         icon={<LayoutGrid className="size-4" />}
         tone="from-emerald-400 to-teal-600"
       />
       <Tile
         className="delay-4"
-        label="Zwarte punten"
+        label="Black points"
         value={`${blackUsed}/${blackLimit}`}
         sub={
           evaluation && evaluation.black_points.kluns_recycled > 0
-            ? `${evaluation.black_points.kluns_recycled} teruggewonnen via kluns`
+            ? `${evaluation.black_points.kluns_recycled} recycled via the loser`
             : undefined
         }
         icon={<Coins className="size-4" />}

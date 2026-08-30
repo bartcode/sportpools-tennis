@@ -62,10 +62,10 @@ export function TeamTable({
         <TableHeader>
           <TableRow className="hover:bg-transparent">
             <TableHead className="w-9"></TableHead>
-            <TableHead>Speler</TableHead>
-            <TableHead className="text-center">Zwart</TableHead>
-            <TableHead className="w-28">Rol</TableHead>
-            <TableHead className="text-right">Punten</TableHead>
+            <TableHead>Player</TableHead>
+            <TableHead className="text-center">Black</TableHead>
+            <TableHead className="w-28">Role</TableHead>
+            <TableHead className="text-right">Points</TableHead>
             {probHeads.map((head) => (
               <TableHead key={head} className="w-16 text-center">
                 {head}
@@ -110,8 +110,8 @@ export function TeamTable({
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      {member.locked ? "Vastzetten op" : "Vastzetten"} (gebruikt
-                      bij her-optimaliseren)
+                      {member.locked ? "Unlock" : "Lock"} (kept when
+                      re-optimising)
                     </TooltipContent>
                   </Tooltip>
                 </TableCell>
@@ -125,7 +125,7 @@ export function TeamTable({
                     )}
                     {isKluns && (
                       <Badge className="gap-1 border-rose-500/40 bg-rose-500/15 text-rose-700 dark:text-rose-300">
-                        <TrendingDown className="size-3" /> Kluns
+                        <TrendingDown className="size-3" /> Loser
                       </Badge>
                     )}
                     {member.locked && (
@@ -160,9 +160,9 @@ export function TeamTable({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="player">Speler</SelectItem>
+                      <SelectItem value="player">Player</SelectItem>
                       <SelectItem value="joker">Joker</SelectItem>
-                      <SelectItem value="kluns">Kluns</SelectItem>
+                      <SelectItem value="kluns">Loser</SelectItem>
                     </SelectContent>
                   </Select>
                 </TableCell>
@@ -203,7 +203,7 @@ export function TeamTable({
                     className="h-7 text-xs"
                     onClick={() => onOpenBench(member.player)}
                   >
-                    Wissel
+                    Swap
                   </Button>
                 </TableCell>
               </TableRow>
@@ -212,9 +212,7 @@ export function TeamTable({
         </TableBody>
       </Table>
       <p className="mt-2 px-2 text-xs text-muted-foreground">
-        Kolommen geven de kans per ronde: ronde 4, kwartfinale, halve finale,
-        finale en titel. S1–S8 is het bracketsegment; klik op een speler voor
-        de route naar de finale.
+        Columns show per-round chances: round 4, quarterfinal, semifinal, final and title. S1–S8 is the bracket section; click a player for their route to the final.
       </p>
     </div>
   );

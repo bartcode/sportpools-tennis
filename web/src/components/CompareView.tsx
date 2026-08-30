@@ -13,7 +13,7 @@ import type { PredictionResult, TeamPlayer } from "@/types";
 
 function RoleIcon({ role }: { role: string }) {
   if (role === "joker") return <span title="Joker">★</span>;
-  if (role === "kluns") return <span title="Kluns">▼</span>;
+  if (role === "kluns") return <span title="Loser">▼</span>;
   return null;
 }
 
@@ -46,7 +46,7 @@ function PlayerChip({ player }: { player: TeamPlayer }) {
       </Badge>
       {player.black > 0 && (
         <Badge variant="ghost" className="px-1.5 text-[10px]">
-          {player.black} zwart
+          {player.black} black
         </Badge>
       )}
       {player.section > 0 && (
@@ -89,7 +89,8 @@ function DiffRow({ player, entering }: DiffRowProps) {
                 : "border-rose-500/40 text-rose-600 dark:text-rose-300",
             )}
           >
-            <RoleIcon role={player.role} /> {player.role}
+            <RoleIcon role={player.role} />{' '}
+          {player.role === 'kluns' ? 'loser' : player.role}
           </Badge>
         )}
       </div>
@@ -114,8 +115,8 @@ export function CompareView({ result }: { result: PredictionResult }) {
   if (surfaces.length < 2) {
     return (
       <p className="text-sm text-muted-foreground">
-        Draai een voorspelling met meerdere ratingmodellen (hardcourt- en
-        totaal-Elo) om te vergelijken.
+        Run a prediction with multiple rating models (hard-court and overall
+        Elo) to compare.
       </p>
     );
   }
@@ -141,7 +142,7 @@ export function CompareView({ result }: { result: PredictionResult }) {
           <p className="font-mono text-2xl font-semibold tabular-nums">
             {points(a.team.expected_points)}
           </p>
-          <p className="text-xs text-muted-foreground">verwachte punten</p>
+          <p className="text-xs text-muted-foreground">expected points</p>
         </div>
         <div className="rounded-xl border bg-gradient-to-br from-violet-500/10 to-fuchsia-500/10 p-4 text-center">
           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
@@ -151,7 +152,7 @@ export function CompareView({ result }: { result: PredictionResult }) {
             {shared.length}/{result.count}
           </p>
           <p className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
-            <CheckCircle2 className="size-3 text-emerald-500" /> robuuste keuzes
+            <CheckCircle2 className="size-3 text-emerald-500" /> robust picks
           </p>
         </div>
         <div className="rounded-xl border bg-gradient-to-br from-emerald-500/10 to-teal-500/10 p-4 text-center">
@@ -161,7 +162,7 @@ export function CompareView({ result }: { result: PredictionResult }) {
           <p className="font-mono text-2xl font-semibold tabular-nums">
             {points(b.team.expected_points)}
           </p>
-          <p className="text-xs text-muted-foreground">verwachte punten</p>
+          <p className="text-xs text-muted-foreground">expected points</p>
         </div>
       </div>
 
@@ -169,7 +170,7 @@ export function CompareView({ result }: { result: PredictionResult }) {
       <div>
         <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold">
           <CheckCircle2 className="size-4 text-emerald-500" />
-          In beide modellen ({shared.length})
+          In both models ({shared.length})
         </h3>
         <div className="flex flex-wrap gap-2">
           {shared
@@ -183,8 +184,8 @@ export function CompareView({ result }: { result: PredictionResult }) {
       {/* Differences */}
       {onlyA.length === 0 && onlyB.length === 0 ? (
         <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-sm text-emerald-700 dark:text-emerald-300">
-          Beide modellen kiezen exact dezelfde selectie — je team is volledig
-          robuust tegen de keuze van ratingmodel.
+          Both models pick exactly the same selection — your team is fully
+          robust to the choice of rating model.
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
@@ -200,8 +201,8 @@ export function CompareView({ result }: { result: PredictionResult }) {
                 </CardTitle>
                 <CardDescription>
                   {only.length === 0
-                    ? `Kiest geen extra spelers; verschil zit bij ${counterpart}.`
-                    : `${only.length} keuze(s) die ${counterpart} niet maakt.`}
+                    ? `Picks no extra players; the difference is with ${counterpart}.`
+                    : `${only.length} pick(s) that ${counterpart} doesn't make.`}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">

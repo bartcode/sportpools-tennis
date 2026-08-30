@@ -103,7 +103,7 @@ def main() -> None:
         "--count",
         "--player-count",
         help="Number of players to select (default: 14 in forecast mode, "
-        "15 in simulation mode where the joker and kluns count along)",
+        "15 in simulation mode where the joker and loser count along)",
         type=int,
         default=None,
     )
@@ -266,7 +266,7 @@ def _print_team_results(model, black_points_limit: int = 20) -> None:
     black_used = int(schedule.loc[schedule["role"] != "kluns", "black"].sum())
 
     LOGGER.info(
-        "Expected points: %.1f | Black points: %d/%d used (%d recycled from kluns)",
+        "Expected points: %.1f | Black points: %d/%d used (%d recycled from the loser)",
         model.team["expected_points"],
         black_used,
         black_points_limit + kluns_black,
@@ -314,11 +314,11 @@ def _print_joker_analysis(model, schedule: pd.DataFrame) -> None:
 
 def _print_kluns_analysis(model, kluns_row, black_points_limit: int) -> None:
     """
-    Explain the kluns choice: exit-round chances, penalty and alternatives.
+    Explain the loser choice: exit-round chances, penalty and alternatives.
     """
     p_win1, p_win2, p_win3 = (float(kluns_row[r]) for r in ROUNDS[:3])
 
-    LOGGER.info("=== KLUNS: %s (seed %s, %d black point(s)) ===",
+    LOGGER.info("=== LOSER: %s (seed %s, %d black point(s)) ===",
                 kluns_row["player"], int(kluns_row["seed"]) or "unseeded",
                 int(kluns_row["black"]))
     LOGGER.info(

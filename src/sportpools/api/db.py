@@ -1,5 +1,5 @@
 """
-SQLite-backed storage for saved teams.
+SQLite-backed storage for saved teams and cached predictions.
 """
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import logging
 import os
 import sqlite3
 import threading
+import time
 from pathlib import Path
 from typing import List, Optional
 
@@ -24,6 +25,12 @@ CREATE TABLE IF NOT EXISTS teams (
     surface TEXT NOT NULL DEFAULT 'hard',
     payload TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS predictions (
+    key TEXT PRIMARY KEY,
+    payload TEXT NOT NULL,
+    created_at REAL NOT NULL
 );
 """
 
@@ -91,6 +98,32 @@ class TeamStore:
         with self._lock, self._connect() as connection:
             cursor = connection.execute("DELETE FROM teams WHERE id = ?", (team_id,))
         return cursor.rowcount > 0
+
+    def save_prediction(self, key: str, payload: dict) -> None:
+        """Persist a prediction result under its request fingerprint."""
+        with self._lock, self._connect() as connection:
+            connection.execute(
+                "INSERT INTO predictions (key, payload, created_at) VALUES (?, ?, ?)"
+                " ON CONFLICT(key) DO UPDATE SET payload = excluded.payload,"
+                " created_at = excluded.created_at",
+                (key, json.dumps(payload), time.time()),
+            )
+
+    def get_prediction(self, key: str) -> Optional[dict]:
+        """
+        Fetch a cached prediction by fingerprint.
+        :return: {"payload": dict, "age_hours": float} or None.
+        """
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT payload, created_at FROM predictions WHERE key = ?", (key,)
+            ).fetchone()
+        if row is None:
+            return None
+        return {
+            "payload": json.loads(row["payload"]),
+            "age_hours": (time.time() - row["created_at"]) / 3600,
+        }
 
 
 STORE = TeamStore()

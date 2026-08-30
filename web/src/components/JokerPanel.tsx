@@ -38,11 +38,11 @@ export function JokerPanel({ model, joker, inTeam, onMakeJoker }: JokerPanelProp
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <Star className="size-4 text-chart-2" /> Joker-opties
+          <Star className="size-4 text-chart-2" /> Joker options
         </CardTitle>
         <CardDescription>
-          Bonus = (50 − 5×zwart) × kans op ronde 4. De joker moet in je team
-          zitten.
+          Bonus = (50 − 5×black) × chance of reaching round 4. The joker must be
+          in your team.
         </CardDescription>
         <CardAction>
           <Badge variant="secondary">{joker}</Badge>
@@ -52,8 +52,8 @@ export function JokerPanel({ model, joker, inTeam, onMakeJoker }: JokerPanelProp
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Speler</TableHead>
-              <TableHead className="text-center">Zwart</TableHead>
+              <TableHead>Player</TableHead>
+              <TableHead className="text-center">Black</TableHead>
               <TableHead className="text-center">P·R4</TableHead>
               <TableHead className="text-right">Bonus</TableHead>
               <TableHead className="w-24"></TableHead>
@@ -70,7 +70,7 @@ export function JokerPanel({ model, joker, inTeam, onMakeJoker }: JokerPanelProp
                     {option.player}
                     <Badge variant="outline">{seedLabel(option.seed)}</Badge>
                     {!inTeam(option.player) && (
-                      <Badge variant="ghost">niet in team</Badge>
+                      <Badge variant="ghost">not in team</Badge>
                     )}
                   </div>
                 </TableCell>
@@ -91,7 +91,7 @@ export function JokerPanel({ model, joker, inTeam, onMakeJoker }: JokerPanelProp
                     disabled={option.player === joker}
                     onClick={() => onMakeJoker(option.player)}
                   >
-                    {option.player === joker ? "Joker" : "Maak joker"}
+                    {option.player === joker ? "Joker" : "Make joker"}
                   </Button>
                 </TableCell>
               </TableRow>

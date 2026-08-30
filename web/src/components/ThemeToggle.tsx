@@ -28,7 +28,7 @@ export function ThemeToggle({
         </Button>
       </TooltipTrigger>
       <TooltipContent>
-        {theme === "dark" ? "Lichte modus" : "Donkere modus"}
+        {theme === "dark" ? "Light mode" : "Dark mode"}
       </TooltipContent>
     </Tooltip>
   );

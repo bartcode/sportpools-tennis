@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import logging
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -24,6 +25,21 @@ from sportpools.api.schemas import (
 )
 from sportpools.api.serialisers import _team_records
 from sportpools.model.pipeline import ROUNDS, TOURNAMENT_URLS, PredictionRequest
+
+TOURNAMENT_LABELS = {
+    "us-open": "US Open",
+    "wimbledon": "Wimbledon",
+    "roland-garros": "Roland Garros",
+    "australian-open": "Australian Open",
+}
+
+# Month in which each slam's edition typically concludes.
+TOURNAMENT_CONCLUSION_MONTHS = {
+    "australian-open": 1,
+    "roland-garros": 6,
+    "wimbledon": 7,
+    "us-open": 9,
+}
 from sportpools.model.tennis import optimise_team
 
 LOGGER = logging.getLogger(__name__)
@@ -43,12 +59,36 @@ def create_app() -> FastAPI:
 
     @app.get("/api/tournaments")
     def tournaments() -> dict:
-        return {
-            "tournaments": [
-                {"key": key, "label": key.replace("-", " ").title()}
-                for key in TOURNAMENT_URLS
-            ]
-        }
+        """
+        Selectable tournaments with their edition years. The years are derived
+        from the server date (next edition of each slam and its neighbours),
+        so new seasons become available without rebuilding the frontend.
+        """
+        current_year = datetime.now().year
+        current_month = datetime.now().month
+
+        tournaments = []
+        for key in TOURNAMENT_URLS:
+            # Month in which the slam's edition typically concludes; the
+            # default year is the next edition that has not finished yet.
+            conclusion_month = TOURNAMENT_CONCLUSION_MONTHS.get(key, 12)
+            default_year = (
+                current_year
+                if current_month <= conclusion_month
+                else current_year + 1
+            )
+            tournaments.append(
+                {
+                    "key": key,
+                    "label": TOURNAMENT_LABELS.get(
+                        key, key.replace("-", " ").title()
+                    ),
+                    "years": [default_year - 1, default_year, default_year + 1],
+                    "default_year": default_year,
+                }
+            )
+
+        return {"tournaments": tournaments}
 
     @app.post("/api/predict")
     def predict(request: PredictRequest) -> dict:
@@ -195,9 +235,9 @@ def _evaluate_team(
     if joker not in players:
         errors.append("Joker is not part of the selection")
     if kluns not in players:
-        errors.append("Kluns is not part of the selection")
+        errors.append("Loser is not part of the selection")
     if joker == kluns:
-        errors.append("Joker and kluns must be different players")
+        errors.append("Joker and loser must be different players")
 
     rows = known.set_index("player")
     black_used = int(
@@ -228,6 +268,7 @@ def _evaluate_team(
                 "seed": int(row["seed"]),
                 "black": int(row["black"]),
                 "section": int(row.get("section", 0) or 0),
+                "position": int(row.get("position", -1) if row.get("position") == row.get("position") else -1),
                 "role": role,
                 "contribution": round(contribution, 2),
                 "potency": round(float(row["potency"]), 2),
@@ -273,8 +314,9 @@ def main() -> None:
     """Entry point for the `sportpools-ui` console script."""
     import uvicorn
 
+    host = os.environ.get("SPORTPOOLS_UI_HOST", "127.0.0.1")
     port = int(os.environ.get("SPORTPOOLS_UI_PORT", "8000"))
-    uvicorn.run(app, host="127.0.0.1", port=port, log_level="info")
+    uvicorn.run(app, host=host, port=port, log_level="info")
 
 
 if __name__ == "__main__":

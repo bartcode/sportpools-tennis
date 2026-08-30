@@ -17,7 +17,7 @@ export function BudgetMeter({ used, limit, recycled }: BudgetMeterProps) {
   return (
     <div className="space-y-1.5">
       <div className="flex items-baseline justify-between text-sm">
-        <span className="text-muted-foreground">Zwarte lijst punten</span>
+        <span className="text-muted-foreground">Black points</span>
         <span
           className={cn(
             "font-mono font-semibold tabular-nums",
@@ -37,12 +37,12 @@ export function BudgetMeter({ used, limit, recycled }: BudgetMeterProps) {
       />
       {recycled > 0 && (
         <p className="text-xs text-muted-foreground">
-          {limit - recycled} basis + {recycled} teruggewonnen via de kluns
+          {limit - recycled} base + {recycled} recycled via the loser
         </p>
       )}
       {over && (
         <p className="text-xs font-medium text-destructive">
-          {used - limit} punten over het budget
+          {used - limit} points over budget
         </p>
       )}
     </div>

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,83 +20,120 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { startPrediction } from "@/lib/api";
+import { getTournaments, startPrediction, type PredictBody } from "@/lib/api";
 import { toast } from "sonner";
 
 interface PredictFormProps {
-  onStarted: (jobId: string) => void;
+  onStarted: (jobId: string, params: PredictBody) => void;
   disabled: boolean;
 }
 
-const YEARS = [2026, 2027];
-
 /**
- * Prediction launcher: tournament, year and rating models.
+ * Prediction launcher: tournament, year and rating models. Tournaments and
+ * years come from the backend, so new seasons appear without a rebuild.
  */
 export function PredictForm({ onStarted, disabled }: PredictFormProps) {
   const [tournament, setTournament] = useState("us-open");
-  const [year, setYear] = useState(2026);
+  const [year, setYear] = useState<number | null>(null);
   const [compare, setCompare] = useState(true);
   const [cacheTtl, setCacheTtl] = useState(6);
   const [busy, setBusy] = useState(false);
 
+  const tournaments = useQuery({
+    queryKey: ["tournaments"],
+    queryFn: getTournaments,
+    staleTime: Infinity,
+  });
+
+  const options = tournaments.data?.tournaments ?? [];
+  const selected = options.find((option) => option.key === tournament);
+
+  // Follow the tournament's next edition until the user picks a year.
+  useEffect(() => {
+    if (selected && year === null) {
+      setYear(selected.default_year);
+    }
+  }, [selected, year]);
+
+  function switchTournament(key: string) {
+    setTournament(key);
+    const next = options.find((option) => option.key === key);
+    if (next) setYear(next.default_year);
+  }
+
   async function run() {
+    if (!selected || year === null) {
+      toast.error("Tournament options are still loading");
+      return;
+    }
     setBusy(true);
     try {
-      const { job_id } = await startPrediction({
+      const params: PredictBody = {
         tournament,
         year,
         surfaces: compare ? ["hard", "all"] : ["hard"],
         black_points: 20,
         count: 15,
         cache_ttl: cacheTtl,
-      });
-      onStarted(job_id);
+      };
+      const { job_id } = await startPrediction(params);
+      onStarted(job_id, params);
     } catch (error) {
-      toast.error(`Voorspelling starten mislukt: ${String(error)}`);
+      toast.error(`Failed to start prediction: ${String(error)}`);
     } finally {
       setBusy(false);
     }
   }
 
+  const loading = options.length === 0;
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Nieuwe voorspelling</CardTitle>
+        <CardTitle className="text-base">New prediction</CardTitle>
         <CardDescription>
-          Haalt het schema (Wikipedia) en de Elo-ratings (Tennis Abstract) op en
-          simuleert het hele toernooi.
+          Fetches the draw (Wikipedia) and the Elo ratings (Tennis Abstract) and
+          simulates the entire tournament.
         </CardDescription>
         <CardAction>
-          <Button onClick={run} disabled={disabled || busy}>
-            <Play className="size-4" /> {busy ? "Starten…" : "Voorspel"}
+          <Button onClick={run} disabled={disabled || busy || loading}>
+            <Play className="size-4" /> {busy ? "Starting…" : "Predict"}
           </Button>
         </CardAction>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
           <div className="space-y-1.5">
-            <Label htmlFor="tournament">Toernooi</Label>
-            <Select value={tournament} onValueChange={setTournament}>
+            <Label htmlFor="tournament">Tournament</Label>
+            <Select
+              value={tournament}
+              onValueChange={switchTournament}
+              disabled={loading}
+            >
               <SelectTrigger id="tournament">
-                <SelectValue />
+                <SelectValue placeholder="Loading…" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="us-open">US Open</SelectItem>
-                <SelectItem value="wimbledon">Wimbledon</SelectItem>
-                <SelectItem value="roland-garros">Roland Garros</SelectItem>
-                <SelectItem value="australian-open">Australian Open</SelectItem>
+                {options.map((option) => (
+                  <SelectItem key={option.key} value={option.key}>
+                    {option.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="year">Jaar</Label>
-            <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
+            <Label htmlFor="year">Year</Label>
+            <Select
+              value={year === null ? undefined : String(year)}
+              onValueChange={(v) => setYear(Number(v))}
+              disabled={loading}
+            >
               <SelectTrigger id="year">
-                <SelectValue />
+                <SelectValue placeholder="Loading…" />
               </SelectTrigger>
               <SelectContent>
-                {YEARS.map((y) => (
+                {(selected?.years ?? []).map((y) => (
                   <SelectItem key={y} value={String(y)}>
                     {y}
                   </SelectItem>
@@ -104,7 +142,7 @@ export function PredictForm({ onStarted, disabled }: PredictFormProps) {
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="black">Zwarte punten</Label>
+            <Label htmlFor="black">Black points</Label>
             <Input id="black" type="number" defaultValue={20} disabled />
           </div>
           <div className="space-y-1.5">
@@ -117,14 +155,14 @@ export function PredictForm({ onStarted, disabled }: PredictFormProps) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="6">6 uur (standaard)</SelectItem>
-                <SelectItem value="24">1 dag</SelectItem>
+                <SelectItem value="6">6 hours (default)</SelectItem>
+                <SelectItem value="24">1 day</SelectItem>
                 <SelectItem value="0.5">30 min</SelectItem>
-                <SelectItem value="0">Altijd vers ophalen</SelectItem>
+                <SelectItem value="0">Always fetch fresh</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Bronnen (schema + Elo) worden hergebruikt binnen deze tijd.
+              Sources (draw + Elo) are reused within this window.
             </p>
           </div>
           <div className="space-y-1.5">
@@ -134,10 +172,10 @@ export function PredictForm({ onStarted, disabled }: PredictFormProps) {
                 checked={compare}
                 onCheckedChange={setCompare}
               />
-              Vergelijk modellen
+              Compare models
             </Label>
             <p className="text-xs text-muted-foreground">
-              Hardcourt- en totaal-Elo naast elkaar (langere rekentijd).
+              Hard-court and overall Elo side by side (longer compute time).
             </p>
           </div>
         </div>

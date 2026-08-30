@@ -5,6 +5,7 @@ export interface PoolPlayer {
   seed: number;
   black: number;
   section: number;
+  position: number;
   potency: number;
   joker_bonus: number;
   kluns_penalty: number;
@@ -112,6 +113,7 @@ export interface EvaluateBreakdownRow {
   seed: number;
   black: number;
   section: number;
+  position: number;
   role: Role;
   contribution: number;
   potency: number;

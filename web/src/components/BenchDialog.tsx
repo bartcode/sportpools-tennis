@@ -77,15 +77,15 @@ export function BenchDialog({
       <DialogContent className="max-h-[80vh] sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>
-            {replacePlayer ? `Wissel ${replacePlayer}` : "Speler toevoegen"}
+            {replacePlayer ? `Swap ${replacePlayer}` : "Add player"}
           </DialogTitle>
           <DialogDescription>
-            Zoek in de overige spelers, gesorteerd op verwachte punten.
+            Search the remaining players, sorted by expected points.
           </DialogDescription>
         </DialogHeader>
 
         <Input
-          placeholder="Zoek speler…"
+          placeholder="Search player…"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
@@ -94,9 +94,9 @@ export function BenchDialog({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Speler</TableHead>
-                <TableHead className="text-center">Zwart</TableHead>
-                <TableHead className="text-right">Punten</TableHead>
+                <TableHead>Player</TableHead>
+                <TableHead className="text-center">Black</TableHead>
+                <TableHead className="text-right">Points</TableHead>
                 <TableHead className="text-center">P·R4</TableHead>
                 <TableHead className="w-20"></TableHead>
               </TableRow>
@@ -129,7 +129,7 @@ export function BenchDialog({
                         disabled={!affordable}
                         onClick={() => {
                           if (!replacePlayer) {
-                            toast.error("Kies eerst een speler om te wisselen");
+                            toast.error("Pick a player to swap out first");
                             return;
                           }
                           onSwap(replacePlayer, candidate.player);
@@ -149,7 +149,7 @@ export function BenchDialog({
                     colSpan={5}
                     className="py-6 text-center text-muted-foreground"
                   >
-                    Geen spelers gevonden
+                    No players found
                   </TableCell>
                 </TableRow>
               )}

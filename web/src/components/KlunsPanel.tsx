@@ -42,11 +42,10 @@ export function KlunsPanel({ model, kluns, inTeam, onMakeKluns }: KlunsPanelProp
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <TrendingDown className="size-4 text-destructive" /> Kluns-opties
+            <TrendingDown className="size-4 text-destructive" /> Loser options
           </CardTitle>
           <CardDescription>
-            De kluns-alternatieven (128 her-optimalisaties) worden alleen voor
-            het primaire model berekend; bekijk het hardcourt-tabblad.
+            No loser alternatives available for this model yet.
           </CardDescription>
         </CardHeader>
       </Card>
@@ -57,11 +56,11 @@ export function KlunsPanel({ model, kluns, inTeam, onMakeKluns }: KlunsPanelProp
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <TrendingDown className="size-4 text-destructive" /> Kluns-opties
+          <TrendingDown className="size-4 text-destructive" /> Loser options
         </CardTitle>
         <CardDescription>
-          Straf = −10 per overleefde ronde (max 50). Zwarte punten van de kluns
-          komen terug in je budget.
+          Penalty = −10 per round survived (max 50). The loser's black points
+          are recycled into your budget.
         </CardDescription>
         <CardAction>
           <Badge variant="destructive">{kluns}</Badge>
@@ -71,9 +70,9 @@ export function KlunsPanel({ model, kluns, inTeam, onMakeKluns }: KlunsPanelProp
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Speler</TableHead>
-              <TableHead className="text-center">Zwart</TableHead>
-              <TableHead className="text-right">Straf</TableHead>
+              <TableHead>Player</TableHead>
+              <TableHead className="text-center">Black</TableHead>
+              <TableHead className="text-right">Penalty</TableHead>
               <TableHead className="text-right">Team EV</TableHead>
               <TableHead className="w-24"></TableHead>
             </TableRow>
@@ -97,13 +96,13 @@ export function KlunsPanel({ model, kluns, inTeam, onMakeKluns }: KlunsPanelProp
                             </Badge>
                           </TooltipTrigger>
                           <TooltipContent>
-                            Zijn {option.black} zwarte punt(en) komen bij je
-                            budget: zwakke kluns, maar je team wordt sterker.
+                            His {option.black} black point(s) are added to
+                            your budget: a weaker kluns, but a stronger team.
                           </TooltipContent>
                         </Tooltip>
                       )}
                       {!inTeam(option.kluns) && (
-                        <Badge variant="ghost">niet in team</Badge>
+                        <Badge variant="ghost">not in team</Badge>
                       )}
                     </div>
                   </TableCell>
@@ -129,7 +128,7 @@ export function KlunsPanel({ model, kluns, inTeam, onMakeKluns }: KlunsPanelProp
                       disabled={option.kluns === kluns}
                       onClick={() => onMakeKluns(option.kluns)}
                     >
-                      {option.kluns === kluns ? "Kluns" : "Maak kluns"}
+                      {option.kluns === kluns ? "Loser" : "Make loser"}
                     </Button>
                   </TableCell>
                 </TableRow>

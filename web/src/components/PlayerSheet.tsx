@@ -36,12 +36,12 @@ export function PlayerSheet({ player, model, onClose }: PlayerSheetProps) {
                 {pool.player}
                 <Badge variant="outline">{seedLabel(pool.seed)}</Badge>
                 {pool.black > 0 && (
-                  <Badge variant="secondary">{pool.black} zwart</Badge>
+                  <Badge variant="secondary">{pool.black} black</Badge>
                 )}
               </SheetTitle>
               <SheetDescription>
-                Verwachte punten {points(pool.potency)} · jokerbonus{" "}
-                {points(pool.joker_bonus)} · klunsstraf{" "}
+                Expected points {points(pool.potency)} · joker bonus{" "}
+                {points(pool.joker_bonus)} · loser penalty{" "}
                 {points(pool.kluns_penalty)}
               </SheetDescription>
             </SheetHeader>
@@ -67,7 +67,7 @@ export function PlayerSheet({ player, model, onClose }: PlayerSheetProps) {
 
               <div>
                 <h3 className="mb-3 text-sm font-semibold">
-                  Meest waarschijnlijke route naar de finale
+                  Most likely route to the final
                 </h3>
                 <ol className="space-y-3">
                   {(route ?? []).map((step) => (
@@ -81,19 +81,19 @@ export function PlayerSheet({ player, model, onClose }: PlayerSheetProps) {
                             {step.opponent}
                           </span>
                           <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
-                            ontmoet {pct(step.p_meet)}
+                            meets {pct(step.p_meet)}
                           </span>
                         </div>
                         <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
                           <span>
-                            tegenstander bereikt ronde:{" "}
+                            opponent reaches round:{" "}
                             <span className="font-mono tabular-nums">
                               {pct(step.p_opponent)}
                             </span>
                           </span>
                           {step.p_beat !== undefined && (
                             <span>
-                              winst:{" "}
+                              wins:{" "}
                               <span
                                 className={cn(
                                   "font-mono font-semibold tabular-nums",
@@ -107,7 +107,7 @@ export function PlayerSheet({ player, model, onClose }: PlayerSheetProps) {
                             </span>
                           )}
                           <span>
-                            overleeft:{" "}
+                            survives:{" "}
                             <span className="font-mono tabular-nums">
                               {pct(step.p_reach)}
                             </span>
@@ -123,7 +123,7 @@ export function PlayerSheet({ player, model, onClose }: PlayerSheetProps) {
           </>
         ) : (
           <div className="p-4 text-sm text-muted-foreground">
-            Speler niet gevonden.
+            Player not found.
           </div>
         )}
       </SheetContent>

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
 import time
 from pathlib import Path
 from typing import Optional
@@ -13,7 +14,7 @@ import requests
 
 LOGGER = logging.getLogger(__name__)
 
-DEFAULT_CACHE_DIR = Path(".cache")
+DEFAULT_CACHE_DIR = Path(os.environ.get("SPORTPOOLS_CACHE_DIR", ".cache"))
 DEFAULT_TTL_HOURS = 6.0
 USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) SportpoolsTennis/1.0"
 

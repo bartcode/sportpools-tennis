@@ -83,6 +83,7 @@ def test_result_structure(prediction):
     assert roles == {"player", "joker", "kluns"}
     assert len(model["pool"]) == 128
     assert all(p["section"] >= 1 for p in model["pool"])
+    assert all(0 <= p["position"] <= 15 for p in model["pool"])
     assert len(model["joker_options"]) == 10
     assert 0 < len(model["kluns_options"]) <= 10
     assert model["kluns_options"][0]["kluns"] == model["team"]["kluns"]
@@ -136,7 +137,7 @@ def test_evaluate_reports_rule_violations(prediction, client):
     )
     body = response.json()
     assert body["valid"] is False
-    assert any("Joker and kluns" in error for error in body["errors"])
+    assert any("Joker and loser" in error for error in body["errors"])
 
 
 def test_optimize_respects_locked_players(prediction, client):
@@ -218,3 +219,85 @@ def test_result_contains_source_ages(prediction):
     assert "draw_age_hours" in sources
     assert "ratings_age_hours" in sources
     assert sources["draw_age_hours"] is not None  # fixture file exists
+
+
+def test_prediction_restored_after_restart(client):
+    """Simulates a server restart: a fresh JobManager serves the prediction
+    from the on-disk cache, instantly, and it stays evaluable."""
+    import time as time_module
+
+    import sportpools.api.app as app_module
+    from sportpools.api.jobs import JobManager
+
+    body = {
+        "tournament": "us-open",
+        "year": 2026,
+        "surfaces": ["hard"],
+        "draw_url": DRAW,
+        "ratings_file": RATINGS,
+    }
+    first = client.post("/api/predict", json=body).json()["job_id"]
+    for _ in range(600):
+        status = client.get(f"/api/jobs/{first}").json()
+        if status["status"] in ("done", "error"):
+            break
+        time_module.sleep(0.2)
+    assert status["status"] == "done"
+    original = client.get(f"/api/jobs/{first}/result").json()
+
+    # "Restart": brand-new in-memory job registry, same SQLite store.
+    original_jobs = app_module.JOBS
+    app_module.JOBS = JobManager()
+    try:
+        started = time_module.time()
+        second = client.post("/api/predict", json=body).json()["job_id"]
+        restored_status = client.get(f"/api/jobs/{second}").json()
+        elapsed = time_module.time() - started
+
+        # served from cache: already done, and fast
+        assert restored_status["status"] == "done"
+        assert elapsed < 5
+
+        # identical payload
+        restored = client.get(f"/api/jobs/{second}/result").json()
+        assert restored["models"]["hard"]["team"] == original["models"]["hard"]["team"]
+
+        # the reconstructed pool supports evaluation
+        team = restored["models"]["hard"]["team"]
+        evaluation = client.post(
+            "/api/evaluate",
+            json={
+                "job_id": second,
+                "surface": "hard",
+                "players": [p["player"] for p in team["players"]],
+                "joker": team["joker"],
+                "kluns": team["kluns"],
+            },
+        )
+        assert evaluation.status_code == 200
+        assert evaluation.json()["valid"] is True
+        assert evaluation.json()["expected_points"] == pytest.approx(
+            team["expected_points"], abs=0.05
+        )
+    finally:
+        app_module.JOBS = original_jobs
+
+
+def test_tournaments_endpoint(client):
+    from datetime import datetime
+
+    body = client.get("/api/tournaments").json()
+    tournaments = body["tournaments"]
+
+    keys = {tournament["key"] for tournament in tournaments}
+    assert keys == {"us-open", "wimbledon", "roland-garros", "australian-open"}
+
+    labels = {tournament["key"]: tournament["label"] for tournament in tournaments}
+    assert labels["us-open"] == "US Open"
+    assert labels["roland-garros"] == "Roland Garros"
+
+    current_year = datetime.now().year
+    for tournament in tournaments:
+        assert len(tournament["years"]) == 3
+        assert tournament["default_year"] in (current_year, current_year + 1)
+        assert tournament["default_year"] in tournament["years"]

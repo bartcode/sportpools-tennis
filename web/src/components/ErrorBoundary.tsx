@@ -32,7 +32,7 @@ export class ErrorBoundary extends Component<
         <div className="flex min-h-screen items-center justify-center p-6">
           <div className="max-w-lg space-y-4 rounded-lg border border-destructive/50 bg-destructive/5 p-6">
             <h1 className="text-lg font-semibold text-destructive">
-              Er ging iets mis in de interface
+              Something went wrong in the interface
             </h1>
             <pre className="overflow-x-auto rounded bg-muted p-3 text-xs">
               {this.state.error.message}
@@ -46,7 +46,7 @@ export class ErrorBoundary extends Component<
                 window.location.reload();
               }}
             >
-              Opnieuw laden
+              Reload
             </Button>
           </div>
         </div>

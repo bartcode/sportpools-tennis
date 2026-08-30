@@ -25,6 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BenchDialog } from "@/components/BenchDialog";
 import { BudgetMeter } from "@/components/BudgetMeter";
+import { BracketView } from "@/components/BracketView";
 import { CompareView } from "@/components/CompareView";
 import { ContributionChart } from "@/components/ContributionChart";
 import { JokerPanel } from "@/components/JokerPanel";
@@ -37,7 +38,14 @@ import { SavedTeamsCard } from "@/components/SavedTeamsCard";
 import { StatTiles } from "@/components/StatTiles";
 import { TeamTable } from "@/components/TeamTable";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { evaluateTeam, getJob, getJobResult, optimizeTeam } from "@/lib/api";
+import {
+  evaluateTeam,
+  getJob,
+  getJobResult,
+  optimizeTeam,
+  startPrediction,
+  type PredictBody,
+} from "@/lib/api";
 import { useTheme } from "@/lib/useTheme";
 import { pct, points, seedLabel } from "@/lib/format";
 import type {
@@ -59,6 +67,7 @@ function membersFromTeam(result: PredictionResult, surface: string): TeamMember[
 }
 
 const JOB_STORAGE_KEY = "sportpools:job";
+const PARAMS_STORAGE_KEY = "sportpools:params";
 const SURFACE_STORAGE_KEY = "sportpools:surface";
 
 export default function App() {
@@ -119,22 +128,48 @@ export default function App() {
           setDirty(false);
           setEvaluation(null);
         })
-        .catch((error) => toast.error(`Resultaat ophalen mislukt: ${String(error)}`));
+        .catch((error) => toast.error(`Failed to fetch result: ${String(error)}`));
     }
     if (jobStatus?.status === "error") {
-      toast.error(`Voorspelling mislukt: ${jobStatus.error ?? "onbekende fout"}`);
+      toast.error(`Prediction failed: ${jobStatus.error ?? "unknown error"}`);
     }
   }, [jobStatus?.status, jobId, result]);
 
-  // Drop a stored job the server no longer knows (e.g. after a restart).
+  // The server no longer knows the stored job (e.g. after a restart):
+  // re-run the stored prediction, which the backend serves from its
+  // on-disk prediction cache, so the dashboard returns instantly.
+  const restoreAttempted = useRef(false);
   useEffect(() => {
-    if (job.isError && jobId) {
-      try {
-        localStorage.removeItem(JOB_STORAGE_KEY);
-      } catch {
-        // storage unavailable
-      }
-      setJobId(null);
+    if (!job.isError || !jobId || restoreAttempted.current) return;
+    restoreAttempted.current = true;
+
+    let params: PredictBody | null = null;
+    try {
+      const raw = localStorage.getItem(PARAMS_STORAGE_KEY);
+      params = raw ? (JSON.parse(raw) as PredictBody) : null;
+    } catch {
+      params = null;
+    }
+
+    try {
+      localStorage.removeItem(JOB_STORAGE_KEY);
+    } catch {
+      // storage unavailable
+    }
+    setJobId(null);
+
+    if (params) {
+      startPrediction(params)
+        .then(({ job_id }) => {
+          try {
+            localStorage.setItem(JOB_STORAGE_KEY, job_id);
+            localStorage.setItem(PARAMS_STORAGE_KEY, JSON.stringify(params));
+          } catch {
+            // storage unavailable
+          }
+          setJobId(job_id);
+        })
+        .catch(() => undefined);
     }
   }, [job.isError, jobId]);
 
@@ -200,7 +235,7 @@ export default function App() {
         return;
       }
       if (!holder) {
-        toast.error("Geen huidige rolhouder om te vervangen");
+        toast.error("No current role holder to replace");
         return;
       }
       mutateMembers((current) =>
@@ -211,7 +246,7 @@ export default function App() {
         ),
       );
       toast.success(
-        `${player} is nu de ${role === "joker" ? "joker" : "kluns"}`,
+        `${player} is now the ${role === "joker" ? "joker" : "loser"}`,
       );
     },
     [members, mutateMembers, setRole],
@@ -243,7 +278,7 @@ export default function App() {
 
   function switchTab(next: string) {
     setTab(next);
-    if (next === "compare") return;
+    if (next === "compare" || next === "schema") return;
     setActiveSurface(next);
     try {
       localStorage.setItem(SURFACE_STORAGE_KEY, next);
@@ -251,9 +286,9 @@ export default function App() {
       // storage unavailable
     }
     if (dirty) {
-      toast.info("Je aanpassingen blijven staan bij een modelwissel", {
+      toast.info("Your edits stay in place when switching models", {
         description:
-          "Klik op 'Herstel optimaal' voor het optimale team van dit model.",
+          "Click 'Reset to optimal' to load this model's optimal team.",
       });
       return;
     }
@@ -268,7 +303,7 @@ export default function App() {
     setMembers(membersFromTeam(result, activeSurface));
     setDirty(false);
     setEvaluation(null);
-    toast.success(`Optimale selectie geladen (${model?.label ?? activeSurface})`);
+    toast.success(`Optimal selection loaded (${model?.label ?? activeSurface})`);
   }
 
   async function reoptimize() {
@@ -293,10 +328,10 @@ export default function App() {
       );
       setDirty(true);
       toast.success(
-        `Her-geoptimaliseerd: ${team.expected_points.toFixed(1)} verwachte punten`,
+        `Re-optimised: ${team.expected_points.toFixed(1)} expected points`,
       );
     } catch (error) {
-      toast.error(`Her-optimaliseren mislukt: ${String(error)}`);
+      toast.error(`Re-optimisation failed: ${String(error)}`);
     } finally {
       setOptimizing(false);
     }
@@ -316,15 +351,15 @@ export default function App() {
   return (
     <TooltipProvider delayDuration={200}>
       <div className="min-h-screen bg-background text-foreground">
-        <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-6">
+        <div className="w-full space-y-6 p-4 md:px-8 md:py-6">
           <header className="flex flex-wrap items-end justify-between gap-2">
             <div>
               <h1 className="text-xl font-semibold tracking-tight">
                 Sportpools Optimiser
               </h1>
               <p className="text-sm text-muted-foreground">
-                Optimaal team op basis van Elo-ratings en het echte
-                toernooischema.
+                Optimal team based on Elo ratings and the actual
+                tournament draw.
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -334,12 +369,12 @@ export default function App() {
                     {result.tournament} {result.year}
                   </Badge>
                   <span>
-                    ratings gekoppeld:{" "}
+                    ratings matched:{" "}
                     {coverage.exact + coverage.fuzzy + coverage.estimated}/128
                     {coverage.unmatched.length > 0 &&
-                      ` (${coverage.unmatched.join(", ")} geschat)`}
+                      ` (${coverage.unmatched.join(", ")} estimated)`}
                   </span>
-                  <SourceAgeChip label="schema" age={result.sources?.draw_age_hours} />
+                  <SourceAgeChip label="draw" age={result.sources?.draw_age_hours} />
                   <SourceAgeChip label="Elo" age={result.sources?.ratings_age_hours} />
                 </div>
               )}
@@ -348,9 +383,10 @@ export default function App() {
           </header>
 
           <PredictForm
-            onStarted={(id) => {
+            onStarted={(id, params) => {
               try {
                 localStorage.setItem(JOB_STORAGE_KEY, id);
+                localStorage.setItem(PARAMS_STORAGE_KEY, JSON.stringify(params));
                 localStorage.removeItem(SURFACE_STORAGE_KEY);
               } catch {
                 // storage unavailable
@@ -371,7 +407,7 @@ export default function App() {
                 id: jobId ?? "",
                 status: "running",
                 progress: 0,
-                stage: "Starten…",
+                stage: "Starting…",
               }}
             />
           )}
@@ -388,7 +424,7 @@ export default function App() {
               {evaluation && !evaluation.valid && (
                 <Alert variant="destructive">
                   <TriangleAlert className="size-4" />
-                  <AlertTitle>Selectie is niet geldig</AlertTitle>
+                  <AlertTitle>Selection is not valid</AlertTitle>
                   <AlertDescription>
                     <ul className="list-inside list-disc space-y-0.5">
                       {evaluation.errors.map((error) => (
@@ -407,8 +443,9 @@ export default function App() {
                     </TabsTrigger>
                   ))}
                   {result.surfaces.length > 1 && (
-                    <TabsTrigger value="compare">Vergelijk</TabsTrigger>
+                    <TabsTrigger value="compare">Compare</TabsTrigger>
                   )}
+                  <TabsTrigger value="schema">Draw</TabsTrigger>
                 </TabsList>
 
                 {result.surfaces.map((surface) => (
@@ -420,11 +457,11 @@ export default function App() {
                     <Card>
                       <CardHeader>
                         <CardTitle className="text-base">
-                          Selectie ({members.length}/{result.count})
+                          Selection ({members.length}/{result.count})
                         </CardTitle>
                         <CardDescription>
-                          Klik op een speler voor de route naar de finale; wissel
-                          of wijzig rollen direct.
+                          Click a player for their route to the final; swap
+                          players or change roles inline.
                         </CardDescription>
                       </CardHeader>
                       <CardContent>
@@ -443,14 +480,14 @@ export default function App() {
                     <div className="flex flex-wrap items-center gap-2">
                       <Button onClick={reoptimize} disabled={optimizing}>
                         <RefreshCw className="size-4" />
-                        {optimizing ? "Optimaliseren…" : "Her-optimaliseer"}
+                        {optimizing ? "Optimising…" : "Re-optimise"}
                       </Button>
                       <Button variant="outline" onClick={resetToOptimal}>
-                        <RotateCcw className="size-4" /> Herstel optimaal
+                        <RotateCcw className="size-4" /> Reset to optimal
                       </Button>
                       <p className="text-xs text-muted-foreground">
-                        Vergrendelde spelers, joker en kluns blijven staan; de
-                        rest wordt opnieuw gekozen.
+                        Locked players, joker and loser stay in place; the
+                        rest is re-chosen.
                       </p>
                     </div>
 
@@ -480,11 +517,11 @@ export default function App() {
                     <Card>
                       <CardHeader>
                         <CardTitle className="text-base">
-                          Modelvergelijking
+                          Model comparison
                         </CardTitle>
                         <CardDescription>
-                          Waar het hardcourt- en totaal-Elo-model dezelfde
-                          spelers kiezen, is je keuze robuust.
+                          Where the hard-court and overall Elo models pick the
+                          same players, your choice is robust.
                         </CardDescription>
                       </CardHeader>
                       <CardContent>
@@ -493,6 +530,14 @@ export default function App() {
                     </Card>
                   </TabsContent>
                 )}
+
+                <TabsContent value="schema">
+                  <BracketView
+                    model={model}
+                    members={members}
+                    onSelectPlayer={setSheetPlayer}
+                  />
+                </TabsContent>
               </Tabs>
 
               <div className="grid gap-4 lg:grid-cols-3">
@@ -508,10 +553,10 @@ export default function App() {
                     />
                     <Separator className="my-4" />
                     <p className="text-xs text-muted-foreground">
-                      Evaluatiemodel: {model.label}.{" "}
+                      Evaluation model: {model.label}.{" "}
                       {dirty
-                        ? "Selectie handmatig aangepast."
-                        : "Optimale selectie."}
+                        ? "Selection manually edited."
+                        : "Optimal selection."}
                     </p>
                   </CardContent>
                 </Card>
@@ -521,7 +566,7 @@ export default function App() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-base">
-                      Verwachte bijdrage per speler
+                      Expected contribution per player
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -529,7 +574,7 @@ export default function App() {
                       <ContributionChart evaluation={evaluation} />
                     ) : (
                       <p className="text-sm text-muted-foreground">
-                        Evaluatie laden…
+                        Loading evaluation…
                       </p>
                     )}
                   </CardContent>
@@ -541,10 +586,10 @@ export default function App() {
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-base">
-                        Reserves (advies)
+                        Suggested reserves
                       </CardTitle>
                       <CardDescription>
-                        Best niet-geselecteerde spelers op verwachte punten.
+                        Best unselected players by expected points.
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -574,7 +619,7 @@ export default function App() {
                       })),
                     );
                     setDirty(true);
-                    toast.success("Team geladen");
+                    toast.success("Team loaded");
                   }}
                 />
               </div>
@@ -607,9 +652,9 @@ function ReservesTable({ reserves }: { reserves: ReservePlayer[] }) {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Speler</TableHead>
-          <TableHead className="text-center">Zwart</TableHead>
-          <TableHead className="text-right">Punten</TableHead>
+          <TableHead>Player</TableHead>
+          <TableHead className="text-center">Black</TableHead>
+          <TableHead className="text-right">Points</TableHead>
           <TableHead className="text-center">P·R4</TableHead>
           <TableHead className="text-center">P·W</TableHead>
         </TableRow>
@@ -654,9 +699,9 @@ function SourceAgeChip({ label, age }: { label: string; age?: number | null }) {
           ? "border-emerald-500/40 text-emerald-600 dark:text-emerald-300"
           : "border-sky-500/40 text-sky-600 dark:text-sky-300"
       }
-      title={`Leeftijd van de gebruikte ${label}gegevens`}
+      title={`Age of the ${label} data used`}
     >
-      {label} {fresh ? "vers" : `${age.toFixed(1)}u`}
+      {label} {fresh ? "fresh" : `${age.toFixed(1)}h old`}
     </Badge>
   );
 }
